@@ -8,7 +8,7 @@ def getSettings():
             'targetSpeed': 1.33,
             'N': 50,
             'modelMass': 62,
-            'dampingMtp': 1.9},        
+            'dampingMtp': 1.9},      
         }    
     
     return settings

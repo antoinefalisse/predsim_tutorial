@@ -6,18 +6,10 @@ Results/*
 !Results/optimaltrajectories.npy
 
 OpenSimModel/*
-!OpenSimModel/new_model
-OpenSimModel/new_model/*
-!OpenSimModel/new_model/experimentalData.npy
-!OpenSimModel/new_model/Model
-
-!OpenSimModel/old_model
-OpenSimModel/old_model/*
-!OpenSimModel/old_model/Model
-
 !OpenSimModel/Hamner_modified
 OpenSimModel/Hamner_modified/*
 !OpenSimModel/Hamner_modified/Model
+!OpenSimModel/Hamner_modified/experimentalData.npy
 
 !OpenSimModel/templates
 
