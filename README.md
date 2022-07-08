@@ -24,7 +24,7 @@ The main script is `main.py` and the easiest is to start exploring the code from
 
 # Visualize simulations in OpenSim
 - Launch OpenSim
-- Open model, eg `OpenSimModel/Hamner_modified/Model/Hamner_modified_scaled.osim.osim`
+- Open model, eg `OpenSimModel/Hamner_modified/Model/Hamner_modified_scaled.osim`
 - Load motion, eg `Results/Case_0/motion.mot`
 - Associate Motion Data, eg `Results/Case_0/GRF.mot`
 
