@@ -13,7 +13,7 @@ The main script is `main.py` and the easiest is to start exploring the code from
 - Create environment: `conda create -n 3dpredsim pip spyder`
 - Activate environment: `activate 3dpredsim`
 - Navigate to the folder where you want to download the code: eg. `cd Documents`
-- Download code: `git clone https://github.com/antoinefalisse/predictsim_mtp.git`
+- Download code: `git clone https://github.com/antoinefalisse/predictsim_tutorial.git`
 - Navigate to the folder: `cd predictsim_tutorial`
 - Install required packages: `python -m pip install -r requirements.txt`
 
