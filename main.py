@@ -1582,8 +1582,9 @@ for case in cases:
         stride_length_GC = ca.norm_2(F1_GC[idxCalcOr3D_r, 0] - 
                                      F1_GC[idxCalcOr3D_r, -1]).full()[0][0]
         GRF_GC = F1_GC[idxGRF, :]
-        GRM_GC = F1_GC[idxGRM, :]
-        torques_GC = F1_GC[getJointIndices(joints, joints), :] 
+        GRM_GC = F1_GC[idxGRM, :]        
+        torques_GC = F1_GC[getJointIndices(list(F_map["residuals"].keys()), 
+                                           joints), :]
         
         # %% Decompose optimal cost and check that the recomputed optimal cost
         # matches the one from CasADi's stats.
