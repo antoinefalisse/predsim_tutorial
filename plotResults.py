@@ -9,14 +9,14 @@ import numpy as np
 import matplotlib.pyplot as plt  
 
 # %% User inputs
-cases = ['0']
+cases = ['0', '1']
 
 # %% Paths
 pathMain = os.getcwd()
 # Load results
 pathTrajectories = os.path.join(pathMain, 'Results')
 optimaltrajectories = np.load(os.path.join(pathTrajectories, 
-                                           'optimalTrajectories.npy'),
+                                           'optimaltrajectories.npy'),
                               allow_pickle=True).item()
 # Load experimental data
 pathData = os.path.join(pathMain, 'OpenSimModel', 'Hamner_modified')

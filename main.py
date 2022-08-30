@@ -486,6 +486,8 @@ for case in cases:
         ext_F = '.dll'
     elif platform.system() == 'Darwin':
         ext_F = '.dylib'
+    elif platform.system() == 'Linux':
+        ext_F = '.so'
     else:
         raise ValueError("Platform not supported.")
     
