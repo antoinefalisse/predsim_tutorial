@@ -135,7 +135,7 @@ for case in cases:
     if 'd' in settings[case]:
         d = settings[case]['d']    
     
-    nThreads = 1 # default number of threads.
+    nThreads = 8 # default number of threads.
     if 'nThreads' in settings[case]:
         nThreads = settings[case]['nThreads']
     parallelMode = "thread" # only supported mode.
