@@ -2,6 +2,7 @@ __pycache__/
 *.log
 
 Results/*
+!Results/Case_0
 !Results/Case_1
 !Results/optimaltrajectories.npy
 
