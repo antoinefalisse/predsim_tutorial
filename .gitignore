@@ -12,3 +12,5 @@ OpenSimModel/Hamner_modified/*
 !OpenSimModel/Hamner_modified/Model
 !OpenSimModel/Hamner_modified/experimentalData.npy
 !OpenSimModel/templates
+
+data4PolynomialFitting*
