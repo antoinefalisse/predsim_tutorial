@@ -1,30 +1,17 @@
 '''
+    Author: Antoine Falisse    
+
     This script formulates and solves a trajectory optimization problem such
     as to generate a three-dimensional muscle-driven predictive simulation of
     human walking.
     
-    OpenSim is used for modeling the musculoskeletal model but is not needed
-    to run this script. In brief, we use a custom version of OpenSim that
-    supports automatic differentiation. The OpenSim-related part is compiled
-    in advance as a library, which is then imported as an external function
-    (details in Falisse et al. 2019b). If you use a different musculoskeletal
-    model, you will need to use OpenSim's Python API to extract certain model
-    parameters. See here how to setup your environment to use the Python API:
-    https://simtk-confluence.stanford.edu/display/OpenSim/Scripting+in+Python.
-    
-    CasADi is used for automatic differentiation and numerical optimization.
-    Make sure you install CasADi beforehand: https://web.casadi.org/get/.
-    
     Associated publications:
         - Falisse et al. (2019a): https://doi.org/10.1098/rsif.2019.0402 
         - Falisse et al. (2019b): https://doi.org/10.1371/journal.pone.0217730
-        - Falisse et al. (in review): https://doi.org/10.1101/2021.08.13.456292
+        - Falisse et al. (2022): https://doi.org/10.1371/journal.pone.0256311
         
-    Please contact me if you find bugs or have suggestions to improve this
-    script. There is definitely room for improvement.
-    
-    Author: Antoine Falisse
-    Date: 2022/01
+    Please contact me or submit a github issue if you find bugs or have
+    suggestions to improve this script.
 '''
 
 import os
@@ -48,7 +35,7 @@ saveOptimalTrajectories = True # Set True to save optimal trajectories
 # Select the case(s) for which you want to solve the associated problem(s) or
 # process the results. Specify the settings of the case(s) in the
 # 'settings' module.
-cases = [str(i) for i in range(1,2)]
+cases = [str(i) for i in range(0,1)]
         
 # Import settings.
 from settings import getSettings   
@@ -58,13 +45,9 @@ for case in cases:
     # %% Settings.    
     ###########################################################################
     # Model settings.
-    model = 'new_model' # default model
+    model = 'Hamner_modified' # default model
     if 'model' in settings[case]:
         model = settings[case]['model']
-        
-    knee_axis = '' # default knee flexion axis (FK)
-    if 'knee_axis' in settings[case]:
-        knee_axis = '_' + settings[case]['knee_axis']
         
     adjustAchillesTendonStiffness = False # default Achilles tendon stiffness.
     if 'adjustAchillesTendonStiffness' in settings[case]:
@@ -78,10 +61,8 @@ for case in cases:
     contactConfiguration = 'generic' # default contact configuration
     if 'contactConfiguration' in settings[case]:
         contactConfiguration = settings[case]['contactConfiguration']
-        
-    modelMass = settings[case]['modelMass']
     
-    dampingMtp = 0.4
+    dampingMtp = 1.9
     if 'dampingMtp' in settings[case]:
         dampingMtp = settings[case]['dampingMtp']
         
@@ -91,7 +72,7 @@ for case in cases:
     if 'targetSpeed' in settings[case]:
         targetSpeed = settings[case]['targetSpeed']
         
-    guessType = 'coldStart' # default initial guess mode.
+    guessType = 'hotStart' # default initial guess mode.
     if 'guessType' in settings[case]:
         guessType = settings[case]['guessType']    
     
@@ -145,18 +126,25 @@ for case in cases:
     pathOpenSimModel = os.path.join(pathMain, 'OpenSimModel')
     pathData = os.path.join(pathOpenSimModel, model)
     pathModelFolder = os.path.join(pathData, 'Model')
-    if withMTP:
-        modelName = '{}_scaled{}'.format(model, knee_axis)
-    else:
-        modelName = '{}_noMTP_scaled{}'.format(model, knee_axis)
+    modelName = '{}_scaled'.format(model)
     pathModel = os.path.join(pathModelFolder, modelName + '.osim')
-    pathMotionFile4Polynomials = os.path.join(pathOpenSimModel, 'templates',
-                                              'MA', 'dummy_motion.mot')
+    pathMotionFile4Polynomials = os.path.join(
+        pathOpenSimModel, 'templates', 'MuscleAnalysis', 'dummy_motion.mot')
     pathExternalFunction = os.path.join(pathModelFolder, 'ExternalFunction')
     pathCase = 'Case_' + case    
     pathTrajectories = os.path.join(pathMain, 'Results') 
     pathResults = os.path.join(pathTrajectories, pathCase)
     os.makedirs(pathResults, exist_ok=True)
+    
+    # %% Model mass.
+    # Get model mass.
+    loadBodyMass = False
+    pathBodyMass = os.path.join(
+        pathModelFolder, 'body_mass_{}.npy'.format(modelName))
+    if os.path.exists(pathBodyMass):
+        loadBodyMass = True
+    from muscleData import getBodyMass
+    bodyMass = getBodyMass(pathModelFolder, modelName, loadBodyMass)   
     
     # %% Muscles.
     # This section is very specific to the OpenSim model being used.
@@ -423,14 +411,15 @@ for case in cases:
     # Support loading/saving polynomial data such that they do not needed to
     # be recomputed every time.
     if os.path.exists(os.path.join(
-            pathModelFolder, 'polynomialData_{}.npy'.format(modelName))):
+            pathModelFolder, 
+            '{}_polynomial_{}.npy'.format(modelName, 'r'))):
         loadPolynomialData = True
     from muscleData import getPolynomialData
     polynomialData = getPolynomialData(
         loadPolynomialData, pathModelFolder, modelName, 
-        pathMotionFile4Polynomials, rightPolynomialJoints, muscles)
+        pathMotionFile4Polynomials, rightPolynomialJoints, muscles, side='r')
     if loadPolynomialData:
-        polynomialData = polynomialData.item()  
+        polynomialData = polynomialData.item()
     
     # The function f_polynomial takes as inputs joint positions and velocities
     # from one side (trunk included), and returns muscle-tendon lengths,
@@ -486,17 +475,13 @@ for case in cases:
         ext_F = '.dll'
     elif platform.system() == 'Darwin':
         ext_F = '.dylib'
+    elif platform.system() == 'Linux':
+        ext_F = '.so'
     else:
         raise ValueError("Platform not supported.")
     
-    suff_F = ''
-    if contactConfiguration == 'generic_low':
-        suff_F = '_' + contactConfiguration
-    
-    F = ca.external('F', os.path.join(
-        pathExternalFunction, modelName + suff_F + ext_F))        
-    F_map = np.load(os.path.join(
-        pathExternalFunction, modelName + suff_F + '_map.npy'), 
+    F = ca.external('F', os.path.join(pathExternalFunction, modelName + ext_F))        
+    F_map = np.load(os.path.join(pathExternalFunction, modelName + '_map.npy'), 
         allow_pickle=True).item()  
     
     # The external function F outputs joint torques, ground reaction forces,
@@ -599,11 +584,9 @@ for case in cases:
     # %% Bounds of the optimal control problem.
     # Load average walking motion used for setting up some of the bounds and 
     # initial guess.
-    motion_walk = 'walking'
-    nametrial_walk_id = 'average_' +  motion_walk + '_HGC_mtp'
-    nametrial_walk_IK = 'IK_' + nametrial_walk_id
-    pathIK_walk = os.path.join(pathOpenSimModel, 'templates', 'IK', 
-                               nametrial_walk_IK + '.mot')
+    nametrial_walk_IK = 'IK_InitialGuess.mot'
+    pathIK_walk = os.path.join(pathOpenSimModel, 'templates', 
+                               'InverseKinematics', nametrial_walk_IK)
     from utilities import getIK
     Qs_walk_filt = getIK(pathIK_walk, joints)[1]
     
@@ -1003,7 +986,7 @@ for case in cases:
             ###################################################################
             # Cost function.
             metEnergyRateTerm = (f_NMusclesSum2(metabolicEnergyRatej) / 
-                                       modelMass)
+                                       bodyMass)
             activationTerm = f_NMusclesSum2(akj[:, j+1])
             armExcitationTerm = f_nArmJointsSum2(eArmk)             
             jointAccelerationTerm = (
@@ -1538,7 +1521,7 @@ for case in cases:
             mechWRate_GC[:,k] = mechWRatek_GC.full().flatten()
             
             # Add basal rate.
-            basalRatek = basal_coef*modelMass**basal_exp
+            basalRatek = basal_coef*bodyMass**basal_exp
             tolMetERate[0, k] = (metabolicEnergyRatek_allMuscles + basalRatek) 
             actHeatRate[0, k] = actHeatRatek_allMuscles
             mtnHeatRate[0, k] = mtnHeatRatek_allMuscles
@@ -1559,12 +1542,12 @@ for case in cases:
                            Qs_GC_rad[joints.index('pelvis_tx'),0])
         
         # Cost of transport (COT).
-        COT_GC = tolMetERate_int / modelMass / distTraveled_GC
-        COT_activation_GC = actHeatRate_int / modelMass / distTraveled_GC
-        COT_maintenance_GC = mtnHeatRate_int / modelMass / distTraveled_GC
-        COT_shortening_GC = shHeatRate_int / modelMass / distTraveled_GC
-        COT_mechanical_GC = mechWRate_int / modelMass / distTraveled_GC        
-        COT_perMuscle_GC = metERatePerMuscle_int / modelMass / distTraveled_GC
+        COT_GC = tolMetERate_int / bodyMass / distTraveled_GC
+        COT_activation_GC = actHeatRate_int / bodyMass / distTraveled_GC
+        COT_maintenance_GC = mtnHeatRate_int / bodyMass / distTraveled_GC
+        COT_shortening_GC = shHeatRate_int / bodyMass / distTraveled_GC
+        COT_mechanical_GC = mechWRate_int / bodyMass / distTraveled_GC        
+        COT_perMuscle_GC = metERatePerMuscle_int / bodyMass / distTraveled_GC
         
         # %% Compute stride length and extract GRFs, GRMs, and joint torques
         # over the entire gait cycle.
@@ -1690,7 +1673,7 @@ for case in cases:
                     Qddsj_opt[idxArmJoints, j])
                 armExcitationTerm_opt = f_nArmJointsSum2(eArmk_opt) 
                 metabolicEnergyRateTerm_opt = (
-                    f_NMusclesSum2(metabolicEnergyRatej_opt) / modelMass)
+                    f_NMusclesSum2(metabolicEnergyRatej_opt) / bodyMass)
                 
                 metabolicEnergyRateTerm_opt_all += (
                     weights['metabolicEnergyRateTerm'] * 
@@ -1826,4 +1809,3 @@ for case in cases:
                                 "stride_length": stride_length_GC}              
             np.save(os.path.join(pathTrajectories, 'optimaltrajectories.npy'),
                     optimaltrajectories)
-            

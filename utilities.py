@@ -304,17 +304,49 @@ def solve_with_constraints(opti, tolerance):
     return sol
 
 # %% Write storage file from numpy array.    
-def numpy2storage(labels, data, storage_file):
+def numpy_to_storage(labels, data, storage_file, datatype=None):
     
     assert data.shape[1] == len(labels), "# labels doesn't match columns"
     assert labels[0] == "time"
     
     f = open(storage_file, 'w')
-    f.write('name %s\n' %storage_file)
-    f.write('datacolumns %d\n' %data.shape[1])
-    f.write('datarows %d\n' %data.shape[0])
-    f.write('range %f %f\n' %(np.min(data[:, 0]), np.max(data[:, 0])))
-    f.write('endheader \n')
+    # Old style
+    if datatype is None:
+        f = open(storage_file, 'w')
+        f.write('name %s\n' %storage_file)
+        f.write('datacolumns %d\n' %data.shape[1])
+        f.write('datarows %d\n' %data.shape[0])
+        f.write('range %f %f\n' %(np.min(data[:, 0]), np.max(data[:, 0])))
+        f.write('endheader \n')
+    # New style
+    else:
+        if datatype == 'IK':
+            f.write('Coordinates\n')
+        elif datatype == 'ID':
+            f.write('Inverse Dynamics Generalized Forces\n')
+        elif datatype == 'GRF':
+            f.write('%s\n' %storage_file)
+        elif datatype == 'muscle_forces':
+            f.write('ModelForces\n')
+        f.write('version=1\n')
+        f.write('nRows=%d\n' %data.shape[0])
+        f.write('nColumns=%d\n' %data.shape[1])    
+        if datatype == 'IK':
+            f.write('inDegrees=yes\n\n')
+            f.write('Units are S.I. units (second, meters, Newtons, ...)\n')
+            f.write("If the header above contains a line with 'inDegrees', this indicates whether rotational values are in degrees (yes) or radians (no).\n\n")
+        elif datatype == 'ID':
+            f.write('inDegrees=no\n')
+        elif datatype == 'GRF':
+            f.write('inDegrees=yes\n')
+        elif datatype == 'muscle_forces':
+            f.write('inDegrees=yes\n\n')
+            f.write('This file contains the forces exerted on a model during a simulation.\n\n')
+            f.write("A force is a generalized force, meaning that it can be either a force (N) or a torque (Nm).\n\n")
+            f.write('Units are S.I. units (second, meters, Newtons, ...)\n')
+            f.write('Angles are in degrees.\n\n')
+            
+        f.write('endheader \n')
     
     for i in range(len(labels)):
         f.write('%s\t' %labels[i])
