@@ -1,6 +1,7 @@
 #include <OpenSim/Simulation/Model/Model.h>
 #include <OpenSim/Simulation/SimbodyEngine/PinJoint.h>
 #include <OpenSim/Simulation/SimbodyEngine/WeldJoint.h>
+#include <OpenSim/Simulation/SimbodyEngine/PlanarJoint.h>
 #include <OpenSim/Simulation/SimbodyEngine/Joint.h>
 #include <OpenSim/Simulation/SimbodyEngine/SpatialTransform.h>
 #include <OpenSim/Simulation/SimbodyEngine/CustomJoint.h>
@@ -9,6 +10,7 @@
 #include <OpenSim/Common/MultiplierFunction.h>
 #include <OpenSim/Common/Constant.h>
 #include <OpenSim/Simulation/Model/SmoothSphereHalfSpaceForce.h>
+#include <OpenSim/Simulation/SimulationUtilities.h>
 #include "SimTKcommon/internal/recorder.h"
 
 #include <iostream>
@@ -34,40 +36,6 @@ T value(const Recorder& e) { return e; };
 template<> 
 double value(const Recorder& e) { return e.getValue(); }; 
 
-SimTK::Array_<int> getIndicesOSInSimbody(const Model& model) { 
-	auto s = model.getWorkingState(); 
-	const auto svNames = model.getStateVariableNames(); 
-	SimTK::Array_<int> idxOSInSimbody(s.getNQ()); 
-	s.updQ() = 0; 
-	for (int iy = 0; iy < s.getNQ(); ++iy) { 
-		s.updQ()[iy] = SimTK::NaN; 
-		const auto svValues = model.getStateVariableValues(s); 
-		for (int isv = 0; isv < svNames.size(); ++isv) { 
-			if (SimTK::isNaN(svValues[isv])) { 
-				s.updQ()[iy] = 0; 
-				idxOSInSimbody[iy] = isv/2; 
-				break; 
-			} 
-		} 
-	} 
-	return idxOSInSimbody; 
-} 
-
-SimTK::Array_<int> getIndicesSimbodyInOS(const Model& model) { 
-	auto idxOSInSimbody = getIndicesOSInSimbody(model); 
-	auto s = model.getWorkingState(); 
-	SimTK::Array_<int> idxSimbodyInOS(s.getNQ()); 
-	for (int iy = 0; iy < s.getNQ(); ++iy) { 
-		for (int iyy = 0; iyy < s.getNQ(); ++iyy) { 
-			if (idxOSInSimbody[iyy] == iy) { 
-				idxSimbodyInOS[iy] = iyy; 
-				break; 
-			} 
-		} 
-	} 
-	return idxSimbodyInOS; 
-} 
-
 template<typename T>
 int F_generic(const T** arg, T** res) {
 
@@ -77,7 +45,7 @@ int F_generic(const T** arg, T** res) {
 
 	// Definition of bodies.
 	OpenSim::Body* pelvis;
-	pelvis = new OpenSim::Body("pelvis", 9.71433360917240484866, Vec3(-0.06827780017111793887, 0.00000000000000000000, 0.00000000000000000000), Inertia(0.08479523605527072849, 0.07184499086005914636, 0.04775918450972933132, 0., 0., 0.));
+	pelvis = new OpenSim::Body("pelvis", 9.71433360917240484866, Vec3(-0.06827780017111793887, 0.00000000000000000000, 0.00000000000000000000), Inertia(0.08149288460503058273, 0.08149288460503058273, 0.04454275915306672023, 0., 0., 0.));
 	model->addBody(pelvis);
 
 	OpenSim::Body* femur_r;
@@ -121,7 +89,7 @@ int F_generic(const T** arg, T** res) {
 	model->addBody(toes_l);
 
 	OpenSim::Body* torso;
-	torso = new OpenSim::Body("torso", 22.12809221362184430859, Vec3(-0.02676026676359908804, 0.30650513962530268053, 0.00000000000000000000), Inertia(1.21625073505346970038, 0.62317899649569097331, 1.18069942499527735791, 0., 0., 0.));
+	torso = new OpenSim::Body("torso", 22.12809221362184430859, Vec3(-0.02676026676359908804, 0.30650513962530268053, 0.00000000000000000000), Inertia(1.07789387144551196407, 0.49585097894322255341, 1.07789387144551196407, 0., 0., 0.));
 	model->addBody(torso);
 
 	OpenSim::Body* humerus_r;
@@ -696,7 +664,7 @@ int F_generic(const T** arg, T** res) {
 	for (int i = 0; i < NX; ++i) QsUs[i] = x[i];
 	/// Controls
 	/// OpenSim and Simbody have different state orders.
-	auto indicesOSInSimbody = getIndicesOSInSimbody(*model);
+	auto indicesOSInSimbody = getIndicesOpenSimInSimbody(*model);
 	for (int i = 0; i < NU; ++i) ua[i] = u[indicesOSInSimbody[i]];
 
 	// Set state variables and realize.
@@ -948,36 +916,36 @@ int F_generic(const T** arg, T** res) {
 
 	/// Outputs.
 	/// Residual forces (OpenSim and Simbody have different state orders).
-	auto indicesSimbodyInOS = getIndicesSimbodyInOS(*model);
+	auto indicesSimbodyInOS = getIndicesSimbodyInOpenSim(*model);
 	for (int i = 0; i < NU; ++i) res[0][i] =
 			value<T>(residualMobilityForces[indicesSimbodyInOS[i]]);
 	/// Ground reaction forces.
-	for (int i = 0; i < 3; ++i) res[0][i + NU + 0] = value<T>(GRF_r[i]);
-	for (int i = 0; i < 3; ++i) res[0][i + NU + 3] = value<T>(GRF_l[i]);
+	for (int i = 0; i < 3; ++i) res[0][i + 31] = value<T>(GRF_r[i]);
+	for (int i = 0; i < 3; ++i) res[0][i + 34] = value<T>(GRF_l[i]);
 	/// Ground reaction moments.
-	for (int i = 0; i < 3; ++i) res[0][i + NU + 6] = value<T>(GRM_r[i]);
-	for (int i = 0; i < 3; ++i) res[0][i + NU + 9] = value<T>(GRM_l[i]);
+	for (int i = 0; i < 3; ++i) res[0][i + 37] = value<T>(GRM_r[i]);
+	for (int i = 0; i < 3; ++i) res[0][i + 40] = value<T>(GRM_l[i]);
 	/// Body origins.
-	for (int i = 0; i < 3; ++i) res[0][i + NU + 12] = value<T>(pelvis_or[i]);
-	for (int i = 0; i < 3; ++i) res[0][i + NU + 15] = value<T>(femur_r_or[i]);
-	for (int i = 0; i < 3; ++i) res[0][i + NU + 18] = value<T>(tibia_r_or[i]);
-	for (int i = 0; i < 3; ++i) res[0][i + NU + 21] = value<T>(talus_r_or[i]);
-	for (int i = 0; i < 3; ++i) res[0][i + NU + 24] = value<T>(calcn_r_or[i]);
-	for (int i = 0; i < 3; ++i) res[0][i + NU + 27] = value<T>(toes_r_or[i]);
-	for (int i = 0; i < 3; ++i) res[0][i + NU + 30] = value<T>(femur_l_or[i]);
-	for (int i = 0; i < 3; ++i) res[0][i + NU + 33] = value<T>(tibia_l_or[i]);
-	for (int i = 0; i < 3; ++i) res[0][i + NU + 36] = value<T>(talus_l_or[i]);
-	for (int i = 0; i < 3; ++i) res[0][i + NU + 39] = value<T>(calcn_l_or[i]);
-	for (int i = 0; i < 3; ++i) res[0][i + NU + 42] = value<T>(toes_l_or[i]);
-	for (int i = 0; i < 3; ++i) res[0][i + NU + 45] = value<T>(torso_or[i]);
-	for (int i = 0; i < 3; ++i) res[0][i + NU + 48] = value<T>(humerus_r_or[i]);
-	for (int i = 0; i < 3; ++i) res[0][i + NU + 51] = value<T>(ulna_r_or[i]);
-	for (int i = 0; i < 3; ++i) res[0][i + NU + 54] = value<T>(radius_r_or[i]);
-	for (int i = 0; i < 3; ++i) res[0][i + NU + 57] = value<T>(hand_r_or[i]);
-	for (int i = 0; i < 3; ++i) res[0][i + NU + 60] = value<T>(humerus_l_or[i]);
-	for (int i = 0; i < 3; ++i) res[0][i + NU + 63] = value<T>(ulna_l_or[i]);
-	for (int i = 0; i < 3; ++i) res[0][i + NU + 66] = value<T>(radius_l_or[i]);
-	for (int i = 0; i < 3; ++i) res[0][i + NU + 69] = value<T>(hand_l_or[i]);
+	for (int i = 0; i < 3; ++i) res[0][i + 43] = value<T>(pelvis_or[i]);
+	for (int i = 0; i < 3; ++i) res[0][i + 46] = value<T>(femur_r_or[i]);
+	for (int i = 0; i < 3; ++i) res[0][i + 49] = value<T>(tibia_r_or[i]);
+	for (int i = 0; i < 3; ++i) res[0][i + 52] = value<T>(talus_r_or[i]);
+	for (int i = 0; i < 3; ++i) res[0][i + 55] = value<T>(calcn_r_or[i]);
+	for (int i = 0; i < 3; ++i) res[0][i + 58] = value<T>(toes_r_or[i]);
+	for (int i = 0; i < 3; ++i) res[0][i + 61] = value<T>(femur_l_or[i]);
+	for (int i = 0; i < 3; ++i) res[0][i + 64] = value<T>(tibia_l_or[i]);
+	for (int i = 0; i < 3; ++i) res[0][i + 67] = value<T>(talus_l_or[i]);
+	for (int i = 0; i < 3; ++i) res[0][i + 70] = value<T>(calcn_l_or[i]);
+	for (int i = 0; i < 3; ++i) res[0][i + 73] = value<T>(toes_l_or[i]);
+	for (int i = 0; i < 3; ++i) res[0][i + 76] = value<T>(torso_or[i]);
+	for (int i = 0; i < 3; ++i) res[0][i + 79] = value<T>(humerus_r_or[i]);
+	for (int i = 0; i < 3; ++i) res[0][i + 82] = value<T>(ulna_r_or[i]);
+	for (int i = 0; i < 3; ++i) res[0][i + 85] = value<T>(radius_r_or[i]);
+	for (int i = 0; i < 3; ++i) res[0][i + 88] = value<T>(hand_r_or[i]);
+	for (int i = 0; i < 3; ++i) res[0][i + 91] = value<T>(humerus_l_or[i]);
+	for (int i = 0; i < 3; ++i) res[0][i + 94] = value<T>(ulna_l_or[i]);
+	for (int i = 0; i < 3; ++i) res[0][i + 97] = value<T>(radius_l_or[i]);
+	for (int i = 0; i < 3; ++i) res[0][i + 100] = value<T>(hand_l_or[i]);
 
 	return 0;
 }
