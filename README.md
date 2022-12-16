@@ -3,7 +3,9 @@
 This tutorial aims to guide users through the steps required to generate 3D predictive simulations of walking while leveraging [OpenSimAD](https://github.com/antoinefalisse/opensimAD). OpenSimAD is a custom version of OpenSim that supports algorithmic differentiation.
 
 The generated predictive simulations should look like this:
-![Predictive simulation of human walking (doi:10.1098/rsif.2019.0402)](doc/images/PredictiveSimulation.gif)
+<p align="center">
+  <img src="doc/images/PredictiveSimulation.gif">
+</p>
 
 # Setup conda environment
 1. Install [Anaconda](https://www.anaconda.com/)
@@ -20,7 +22,7 @@ The generated predictive simulations should look like this:
 	- Visit this [webpage](https://simtk-confluence.stanford.edu:8443/display/OpenSim/Conda+Package) for more details about the OpenSim conda package.
 6. (Optional): Install an IDE such as Spyder: `conda install spyder`
 7. Clone the repository to your machine: 
-	- Navigate to the directory where you want to download the code: eg. `cd Documents`. Make sure there are no spaces in this path.
+	- Navigate to the directory where you want to download the code: eg. `cd ./Documents`.
 	- Clone the repository: `git clone https://github.com/antoinefalisse/predsim_tutorial.git`
 	- Navigate to the directory: `cd predsim_tutorial`
 8. Install required packages: `python -m pip install -r requirements.txt`
@@ -33,11 +35,11 @@ To leverage the benefits of algorithmic differentiation, we use [CasADi external
 1. Install [OpenSimAD](https://github.com/antoinefalisse/opensimAD) following the instructions in the [README](https://github.com/antoinefalisse/opensimAD#install-requirements). We will assume you downloaded the repository under /Documents/opensimAD.
 2. Copy the scaled musculoskeletal model (Hamner_modified_scaled.osim) in /Documents/opensimAD/examples (fyi there should already be two example models in that folder).
 3. In /Documents/opensimAD/main.py, adjust [`modelName`](https://github.com/antoinefalisse/opensimAD/blob/main/main.py#L46) to the name of your scaled model: `modelName = 'Hamner_modified'`.
-4. Run `main.py` (make sure you are in the opensim-ad conda environment). You should see some new files files in /Documents/opensimAD/examples. Among them, the following three files: `Hamner_modified_scaled.cpp`, `Hamner_modified_scaled.npy`, and `Hamner_modified_scaled.dll` (Windows) or `Hamner_modified_scaled.so` (Linux) or `Hamner_modified_scaled.dylib` (macOS).
+4. Run `main.py` (make sure you activated the opensim-ad conda environment). You should see some new files in /Documents/opensimAD/examples. Among them, the following three files: `Hamner_modified_scaled.cpp`, `Hamner_modified_scaled.npy`, and `Hamner_modified_scaled.dll` (Windows) or `Hamner_modified_scaled.so` (Linux) or `Hamner_modified_scaled.dylib` (macOS).
 5. Create a folder ExternalFunction in /Documents/predsim_tutorial/OpenSimModel/Hamner_modified/Model/ and copy the three files mentioned above in this new folder (yes they are already there in case you wanted to skip part 1, but now you know how to generate these files). It should like:
-- /Documents/predsim_tutorial/OpenSimModel/Hamner_modified/Model/ExternalFunction/Hamner_modified_scaled.cpp
-- /Documents/predsim_tutorial/OpenSimModel/Hamner_modified/Model/ExternalFunction/Hamner_modified_scaled.npy
-- /Documents/predsim_tutorial/OpenSimModel/Hamner_modified/Model/ExternalFunction/Hamner_modified_scaled.dll(so or dylib)
+	- /Documents/predsim_tutorial/OpenSimModel/Hamner_modified/Model/ExternalFunction/Hamner_modified_scaled.cpp
+	- /Documents/predsim_tutorial/OpenSimModel/Hamner_modified/Model/ExternalFunction/Hamner_modified_scaled.npy
+	- /Documents/predsim_tutorial/OpenSimModel/Hamner_modified/Model/ExternalFunction/Hamner_modified_scaled.dll(so or dylib)
 
 ## Part 2: Generate simulations
 
