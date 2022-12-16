@@ -25,7 +25,7 @@ import platform
 # results. Yet if you solved the optimal control problem and saved the results,
 # you might want to latter only load and process the results without re-solving
 # the problem. Playing with the settings below allows you to do exactly that.
-solveProblem = True # Set True to solve the optimal control problem.
+solveProblem = False # Set True to solve the optimal control problem.
 saveResults = True # Set True to save the results of the optimization.
 analyzeResults = True # Set True to analyze the results.
 loadResults = True # Set True to load the results of the optimization.
@@ -35,7 +35,7 @@ saveOptimalTrajectories = True # Set True to save optimal trajectories
 # Select the case(s) for which you want to solve the associated problem(s) or
 # process the results. Specify the settings of the case(s) in the
 # 'settings' module.
-cases = [str(i) for i in range(0,1)]
+cases = [str(i) for i in range(0,2)]
         
 # Import settings.
 from settings import getSettings   
@@ -104,7 +104,7 @@ for case in cases:
 
     ###########################################################################
     # Numerical settings.
-    tol = 4 # default IPOPT convergence tolerance.
+    tol = 3 # default IPOPT convergence tolerance.
     if 'tol' in settings[case]:
         tol = settings[case]['tol']
     
@@ -1732,9 +1732,10 @@ for case in cases:
                             for bothSidesMuscle in bothSidesMuscles]        
             labels = ['time'] + joints + muscleLabels
             data = np.concatenate((tgrid_GC.T, Qs_GC.T, A_GC.T), axis=1)             
-            from utilities import numpy2storage
-            numpy2storage(labels, data, os.path.join(pathResults,'motion.mot'))
-            
+            from utilities import numpy_to_storage
+            numpy_to_storage(labels, data, 
+                             os.path.join(pathResults,'motion.mot'), 
+                             datatype='IK')            
             # Compute center of pressure (COP) and free torque (freeT).
             from utilities import getCOP
             COPr_GC, freeTr_GC = getCOP(GRF_GC[:3,:], GRM_GC[:3,:])
@@ -1771,7 +1772,9 @@ for case in cases:
                 (tgrid_GC.T, GRF_GC_toPrint[:3,:].T, COP_GC_toPrint[:3,:].T, 
                  GRF_GC_toPrint[3:,:].T, COP_GC_toPrint[3:,:].T, 
                  freeT_GC_toPrint.T), axis=1)
-            numpy2storage(labels, data, os.path.join(pathResults, 'GRF.mot'))
+            numpy_to_storage(labels, data,
+                             os.path.join(pathResults, 'GRF.mot'), 
+                             datatype='GRF')
             
         # %% Save optimal trajectories for further analysis.
         if saveOptimalTrajectories: 
