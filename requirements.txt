@@ -4,3 +4,4 @@ matplotlib
 casadi
 ipython
 scipy
+joblib
