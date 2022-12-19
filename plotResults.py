@@ -168,7 +168,6 @@ for i, ax in enumerate(axs.flat):
         plt.legend(handles, labels, loc='upper right')
 plt.setp(axs[-1, :], xlabel='Gait cycle (%)')
 plt.setp(axs[:, 0], ylabel='(Nm)')
-fig.align_ylabels()
 
 # %% Ground reaction forces.
 GRF_labels = optimaltrajectories[cases[0]]['GRF_labels']
@@ -298,3 +297,4 @@ ax31.set_xticks(x_locations)
 ax31.set_xticklabels(xticklabels)
 ax32.set_xticks(x_locations)
 ax32.set_xticklabels(xticklabels)
+plt.show()
