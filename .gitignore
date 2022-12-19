@@ -22,3 +22,5 @@ OpenSimModel/Hamner_modified_weakerGluts/*
 !OpenSimModel/templates
 
 data4PolynomialFitting*
+ID_withOsimAndIDTool*
+SetupID*
