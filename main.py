@@ -130,7 +130,6 @@ for case in cases:
     pathModel = os.path.join(pathModelFolder, modelName + '.osim')
     pathMotionFile4Polynomials = os.path.join(
         pathOpenSimModel, 'templates', 'MuscleAnalysis', 'dummy_motion.mot')
-    pathExternalFunction = os.path.join(pathModelFolder, 'ExternalFunction')
     pathCase = 'Case_' + case    
     pathTrajectories = os.path.join(pathMain, 'Results') 
     pathResults = os.path.join(pathTrajectories, pathCase)
@@ -480,8 +479,8 @@ for case in cases:
     else:
         raise ValueError("Platform not supported.")
     
-    F = ca.external('F', os.path.join(pathExternalFunction, modelName + ext_F))        
-    F_map = np.load(os.path.join(pathExternalFunction, modelName + '_map.npy'), 
+    F = ca.external('F', os.path.join(pathModelFolder, modelName + ext_F))        
+    F_map = np.load(os.path.join(pathModelFolder, modelName + '_map.npy'), 
         allow_pickle=True).item()  
     
     # The external function F outputs joint torques, ground reaction forces,
