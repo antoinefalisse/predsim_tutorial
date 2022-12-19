@@ -1,16 +1,23 @@
 __pycache__/
 *.log
+*.DS_Store
 
 Results/*
-!Results/Case_0
-!Results/Case_1
-!Results/optimaltrajectories.npy
+!Results/Case_0_ref
 
 OpenSimModel/*
 !OpenSimModel/Hamner_modified
 OpenSimModel/Hamner_modified/*
 !OpenSimModel/Hamner_modified/Model
 !OpenSimModel/Hamner_modified/experimentalData.npy
+
+!OpenSimModel/Hamner_modified_stifferContacts
+OpenSimModel/Hamner_modified_stifferContacts/*
+!OpenSimModel/Hamner_modified_stifferContacts/Model
+
+!OpenSimModel/Hamner_modified_weakerGluts
+OpenSimModel/Hamner_modified_weakerGluts/*
+!OpenSimModel/Hamner_modified_weakerGluts/Model
 
 !OpenSimModel/templates
 

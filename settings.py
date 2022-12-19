@@ -1,22 +1,26 @@
 def getSettings():
         
     settings = {        
-        # Hamner model - 50 mesh intervals
+        # Baseline
         '0': {
             'model': 'Hamner_modified',
-            'guessType': 'hotStart',
             'targetSpeed': 1.33,
-            'N': 50,
-            'modelMass': 62,
-            'dampingMtp': 1.9},
-        
-        # Hamner model - 25 mesh intervals (faster)
+            'N': 25},
+        # Target speed 1m/s.
         '1': {
             'model': 'Hamner_modified',
-            'guessType': 'hotStart',
+            'targetSpeed': 1.00,
+            'N': 25},
+        # Weaker gluteus muscles (50% strength).
+        '2': {
+            'model': 'Hamner_modified_weakerGluts',
             'targetSpeed': 1.33,
-            'N': 25,
-            'modelMass': 62,
-            'dampingMtp': 1.9}}    
+            'N': 25},
+        # Contact models with higher stiffness (10e6 instead of 1e6)
+        '3': {
+            'model': 'Hamner_modified_stifferContacts',
+            'targetSpeed': 1.33,
+            'N': 25},
+        }    
     
     return settings

@@ -9,7 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt  
 
 # %% User inputs
-cases = ['0', '1']
+cases = ['0', '3']
 
 # %% Paths
 pathMain = os.getcwd()
@@ -19,10 +19,10 @@ optimaltrajectories = np.load(os.path.join(pathTrajectories,
                                            'optimalTrajectories.npy'),
                               allow_pickle=True).item()
 # Load experimental data
-pathData = os.path.join(pathMain, 'OpenSimModel', 'Hamner_modified')
+model_name = 'Hamner_modified'
+pathData = os.path.join(pathMain, 'OpenSimModel', model_name)
 experimentalData = np.load(os.path.join(pathData, 'experimentalData.npy'),
                            allow_pickle=True).item()
-subject = 'new_model'
 
 # %% Joint positions.
 joints = optimaltrajectories[cases[0]]['joints']
@@ -50,9 +50,9 @@ for i, ax in enumerate(axs.flat):
             ax.plot(optimaltrajectories[case]['GC_percent'],
                     optimaltrajectories[case]['coordinate_values'][c_joint_idx:c_joint_idx+1, :].T, c=next(color), label='case_' + case)
             if plotExperimental:
-                ax.fill_between(experimentalData[subject]["kinematics"]["positions"]["GC_percent"],
-                            experimentalData[subject]["kinematics"]["positions"]["mean"][jointToPlot[i]] + 2*experimentalData[subject]["kinematics"]["positions"]["std"][jointToPlot[i]],
-                            experimentalData[subject]["kinematics"]["positions"]["mean"][jointToPlot[i]] - 2*experimentalData[subject]["kinematics"]["positions"]["std"][jointToPlot[i]],
+                ax.fill_between(experimentalData[model_name]["kinematics"]["positions"]["GC_percent"],
+                            experimentalData[model_name]["kinematics"]["positions"]["mean"][jointToPlot[i]] + 2*experimentalData[model_name]["kinematics"]["positions"]["std"][jointToPlot[i]],
+                            experimentalData[model_name]["kinematics"]["positions"]["mean"][jointToPlot[i]] - 2*experimentalData[model_name]["kinematics"]["positions"]["std"][jointToPlot[i]],
                             facecolor='grey', alpha=0.4)
                 plotExperimental = False
         ax.set_title(joints[idxJointsToPlot[i]])
@@ -126,14 +126,14 @@ for i, ax in enumerate(axs.flat):
                     optimaltrajectories[case]['muscle_activations'][idxMusclesToPlot[i]:idxMusclesToPlot[i]+1, :].T, c=next(color), label='case_' + case)            
             if musclesToPlot[i] in mappingEMG and plotExperimental:                
                 # Normalize EMG such that peak mean EMG = peak activation             
-                exp_mean = experimentalData[subject]["EMG"]["mean"][mappingEMG[musclesToPlot[i]]]
+                exp_mean = experimentalData[model_name]["EMG"]["mean"][mappingEMG[musclesToPlot[i]]]
                 exp_mean_peak = np.max(exp_mean)
                 sim = optimaltrajectories[case]['muscle_activations'][idxMusclesToPlot[i], :].T
                 sim_peak = np.max(sim)
                 scaling_emg = sim_peak / exp_mean_peak
-                ax.fill_between(experimentalData[subject]["EMG"]["GC_percent"],
-                        experimentalData[subject]["EMG"]["mean"][mappingEMG[musclesToPlot[i]]] * scaling_emg + 2*experimentalData[subject]["EMG"]["std"][mappingEMG[musclesToPlot[i]]] * scaling_emg,
-                        experimentalData[subject]["EMG"]["mean"][mappingEMG[musclesToPlot[i]]] * scaling_emg - 2*experimentalData[subject]["EMG"]["std"][mappingEMG[musclesToPlot[i]]] * scaling_emg,
+                ax.fill_between(experimentalData[model_name]["EMG"]["GC_percent"],
+                        experimentalData[model_name]["EMG"]["mean"][mappingEMG[musclesToPlot[i]]] * scaling_emg + 2*experimentalData[model_name]["EMG"]["std"][mappingEMG[musclesToPlot[i]]] * scaling_emg,
+                        experimentalData[model_name]["EMG"]["mean"][mappingEMG[musclesToPlot[i]]] * scaling_emg - 2*experimentalData[model_name]["EMG"]["std"][mappingEMG[musclesToPlot[i]]] * scaling_emg,
                         facecolor='grey', alpha=0.4)
                 plotExperimental = False    
         ax.set_title(muscles[idxMusclesToPlot[i]])
@@ -159,9 +159,9 @@ for i, ax in enumerate(axs.flat):
             ax.plot(optimaltrajectories[case]['GC_percent'],
                     optimaltrajectories[case]['joint_torques'][c_joint_idx:c_joint_idx+1, :].T, c=next(color), label='case_' + case)
             if plotExperimental:
-                ax.fill_between(experimentalData[subject]["kinetics"]["GC_percent"],
-                            experimentalData[subject]["kinetics"]["mean"][jointToPlot[i]] + 2*experimentalData[subject]["kinetics"]["std"][jointToPlot[i]],
-                            experimentalData[subject]["kinetics"]["mean"][jointToPlot[i]] - 2*experimentalData[subject]["kinetics"]["std"][jointToPlot[i]],
+                ax.fill_between(experimentalData[model_name]["kinetics"]["GC_percent"],
+                            experimentalData[model_name]["kinetics"]["mean"][jointToPlot[i]] + 2*experimentalData[model_name]["kinetics"]["std"][jointToPlot[i]],
+                            experimentalData[model_name]["kinetics"]["mean"][jointToPlot[i]] - 2*experimentalData[model_name]["kinetics"]["std"][jointToPlot[i]],
                             facecolor='grey', alpha=0.4)
         ax.set_title(joints[idxJointsToPlot[i]])
         handles, labels = ax.get_legend_handles_labels()
@@ -183,9 +183,9 @@ for i, ax in enumerate(axs.flat):
         ax.plot(optimaltrajectories[case]['GC_percent'],
                 optimaltrajectories[case]['GRF'][idxGRFToPlot[i]:idxGRFToPlot[i]+1, :].T, c=next(color), label='case_' + case) 
         if plotExperimental:
-            ax.fill_between(experimentalData[subject]["GRF"]["GC_percent"],
-                            experimentalData[subject]["GRF"]["mean"][GRFToPlot[i]] + 2*experimentalData[subject]["GRF"]["std"][GRFToPlot[i]],
-                            experimentalData[subject]["GRF"]["mean"][GRFToPlot[i]] - 2*experimentalData[subject]["GRF"]["std"][GRFToPlot[i]],
+            ax.fill_between(experimentalData[model_name]["GRF"]["GC_percent"],
+                            experimentalData[model_name]["GRF"]["mean"][GRFToPlot[i]] + 2*experimentalData[model_name]["GRF"]["std"][GRFToPlot[i]],
+                            experimentalData[model_name]["GRF"]["mean"][GRFToPlot[i]] - 2*experimentalData[model_name]["GRF"]["std"][GRFToPlot[i]],
                             facecolor='grey', alpha=0.4)
     ax.set_title(GRF_labels[idxGRFToPlot[i]])
     handles, labels = ax.get_legend_handles_labels()
