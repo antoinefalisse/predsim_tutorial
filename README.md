@@ -36,7 +36,7 @@ To leverage the benefits of algorithmic differentiation, we use [CasADi external
 1. Download the [OpenSimAD](https://github.com/antoinefalisse/opensimAD) repository and install the [third party packages](https://github.com/antoinefalisse/opensimAD#install-requirements) (if applicable). You do NOT need to set up the opensim-ad conda environment; the environment you created above (predsim_tutorial) contains all you need. We will assume you downloaded the repository under /Documents/opensimAD.
 
 2. In /Documents/opensimAD/main.py, adjust:
-    - [`pathModelFolder`](https://github.com/antoinefalisse/opensimAD/blob/main/main.py#L44) to the path of the folder containing the model, eg `pathModelFolder = /Documents/predsim_tutorial/OpenSimModel/Hamner_modified/Model`.
+    - [`pathModelFolder`](https://github.com/antoinefalisse/opensimAD/blob/main/main.py#L44) to the path of the folder containing the model, eg `pathModelFolder = '/Documents/predsim_tutorial/OpenSimModel/Hamner_modified/Model'`.
 	- [`modelName`](https://github.com/antoinefalisse/opensimAD/blob/main/main.py#L46) to the name of the model: `modelName = 'Hamner_modified_scaled'`.
 	
 3. Activate the predsim_tutorial conda environment if not already done: `conda activate predsim_tutorial`
