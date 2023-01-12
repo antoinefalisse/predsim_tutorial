@@ -175,32 +175,28 @@ for case in cases:
     if os.path.exists(os.path.join(
             pathModelFolder, 'mtParameters_{}.npy'.format(modelName))):
         loadMTParameters = True        
-    sideMtParameters = getMTParameters(pathModel, rightSideMuscles,
-                                       loadMTParameters, modelName,
-                                       pathModelFolder)
-    mtParameters = np.concatenate((sideMtParameters, sideMtParameters), axis=1)
+    mtParameters = getMTParameters(
+        pathModel, bothSidesMuscles, loadMTParameters, modelName,
+        pathModelFolder)
     
     # Tendon stiffness.
     from muscleData import tendonStiffness
     # Same stiffness for all tendons by default.
-    sideTendonStiffness = tendonStiffness(nSideMuscles)
+    tendonStiffness = tendonStiffness(nMuscles)
     # Adjust Achilles tendon stiffness (triceps surae).
     if adjustAchillesTendonStiffness:
         AchillesTendonStiffness = settings[case]['AchillesTendonStiffness']
-        musclesAchillesTendon = ['med_gas_r', 'lat_gas_r', 'soleus_r']
+        musclesAchillesTendon = ['med_gas_r', 'lat_gas_r', 'soleus_r',
+                                 'med_gas_l', 'lat_gas_l', 'soleus_l']
         idxMusclesAchillesTendon = [
-            rightSideMuscles.index(muscleAchillesTendon) 
+            bothSidesMuscles.index(muscleAchillesTendon) 
             for muscleAchillesTendon in musclesAchillesTendon]
-        sideTendonStiffness[0, idxMusclesAchillesTendon] = (
-            AchillesTendonStiffness)                
-    tendonStiffness = np.concatenate((sideTendonStiffness,
-                                      sideTendonStiffness), axis=1)
+        tendonStiffness[0, idxMusclesAchillesTendon] = (
+            AchillesTendonStiffness)
     
     # Muscle specific tension.
     from muscleData import specificTension
-    sideSpecificTension = specificTension(rightSideMuscles)
-    specificTension = np.concatenate((sideSpecificTension, 
-                                      sideSpecificTension), axis=1)
+    specificTension = specificTension(bothSidesMuscles)
     
     # Hill-equilibrium. We use as muscle model the DeGrooteFregly2016 model
     # introduced in: https://pubmed.ncbi.nlm.nih.gov/27001399/.
@@ -540,13 +536,11 @@ for case in cases:
     muscleMass = np.divide(np.multiply(muscleVolume, 1059.7), 
                            np.multiply(specificTension[0, :].T, 1e6))
     from muscleData import slowTwitchRatio
-    sideSlowTwitchRatio = slowTwitchRatio(rightSideMuscles)
-    slowTwitchRatio = (np.concatenate((sideSlowTwitchRatio, 
-                                      sideSlowTwitchRatio), axis=1))[0, :].T
+    slowTwitchRatios = slowTwitchRatio(bothSidesMuscles).flatten()
     smoothingConstant = 10
     from casadiFunctions import metabolicsBhargava
     f_metabolicsBhargava = metabolicsBhargava(
-        slowTwitchRatio, maximalIsometricForce, muscleMass, smoothingConstant)
+        slowTwitchRatios, maximalIsometricForce, muscleMass, smoothingConstant)
     
     # %% Arm activation dynamics.
     from casadiFunctions import armActivationDynamics
