@@ -476,7 +476,7 @@ def testPolynomials(data4PolynomialFitting, joints, muscles,
     fig = plt.figure()
     fig.suptitle('Muscle-tendon lengths')
     for i in range(len(muscles)):      
-        muscle_obj = muscles[i][:-1] + 'r'
+        muscle_obj = muscles[i]
         if polynomialData[muscle_obj]['dimension'] == 1:
             temp = polynomialData[muscle_obj]['spanning']==1
             y = (i for i,v in enumerate(temp) if v == True)
@@ -515,7 +515,7 @@ def testPolynomials(data4PolynomialFitting, joints, muscles,
         for j in range(NMomentarms):
             if joint[-1] == 'r' or joint[-1] == 'l':
                 muscle_obj_r = (
-                    muscles[momentArmIndices[joint[:-1] + 'l'][j]][:-1] + 'r')
+                    muscles[momentArmIndices[joint[:-1] + 'l'][j]])
                 muscle_obj = muscles[momentArmIndices[joint[:-1] + 'l'][j]]
             else:
                 muscle_obj_r = muscles[trunkMomentArmPolynomialIndices[j]]

@@ -145,7 +145,7 @@ for case in cases:
     from muscleData import getBodyMass
     bodyMass = getBodyMass(pathModelFolder, modelName, loadBodyMass)   
     
-    # %% Muscles.
+    # %% Muscles (very messy).
     # This section is very specific to the OpenSim model being used.
     # The list 'muscles' includes all right leg muscles, as well both side
     # trunk muscles.
@@ -163,6 +163,9 @@ for case in cases:
     rightSideMuscles = muscles[:-3]
     leftSideMuscles = [muscle[:-1] + 'l' for muscle in rightSideMuscles]
     bothSidesMuscles = leftSideMuscles + rightSideMuscles
+    leftTrunkMuscles = muscles[-3:]
+    rightTrunkMuscles = muscles[-6:-3]
+    trunkMuscles = leftTrunkMuscles + rightTrunkMuscles
     nMuscles = len(bothSidesMuscles)
     nSideMuscles = len(rightSideMuscles)
     
@@ -391,56 +394,73 @@ for case in cases:
     from casadiFunctions import polynomialApproximation
     leftPolynomialJoints = [
         'hip_flexion_l', 'hip_adduction_l', 'hip_rotation_l', 'knee_angle_l',
-        'ankle_angle_l', 'subtalar_angle_l', 'mtp_angle_l',
-        'lumbar_extension', 'lumbar_bending', 'lumbar_rotation'] 
+        'ankle_angle_l', 'subtalar_angle_l', 'mtp_angle_l'] 
     rightPolynomialJoints = [
         'hip_flexion_r', 'hip_adduction_r', 'hip_rotation_r', 'knee_angle_r',
-        'ankle_angle_r', 'subtalar_angle_r', 'mtp_angle_r',
+        'ankle_angle_r', 'subtalar_angle_r', 'mtp_angle_r']
+    trunkPolynomialJoints = [
         'lumbar_extension', 'lumbar_bending', 'lumbar_rotation']
     if not withMTP:
         leftPolynomialJoints.remove(mtpJoints[0])
         rightPolynomialJoints.remove(mtpJoints[1])
-    nPolynomialJoints = len(leftPolynomialJoints)
+    # nPolynomialJoints = len(leftPolynomialJoints)
     
     loadPolynomialData = False
     # Support loading/saving polynomial data such that they do not needed to
     # be recomputed every time.
-    if os.path.exists(os.path.join(
-            pathModelFolder, 
-            '{}_polynomial_{}.npy'.format(modelName, 'r'))):
+    if (os.path.exists(
+            os.path.join(pathModelFolder, 
+                         '{}_polynomial_{}.npy'.format(modelName, 'r'))) and
+        os.path.exists(
+            os.path.join(pathModelFolder, 
+                         '{}_polynomial_{}.npy'.format(modelName, 'l')))):
         loadPolynomialData = True
     from muscleData import getPolynomialData
-    polynomialData = getPolynomialData(
+    polynomialData = {}
+    
+    polynomialData['r'] = getPolynomialData(
         loadPolynomialData, pathModelFolder, modelName, 
-        pathMotionFile4Polynomials, rightPolynomialJoints, muscles, side='r')
+        pathMotionFile4Polynomials, rightPolynomialJoints, 
+        rightSideMuscles[:-3], side='r')
+    polynomialData['l'] = getPolynomialData(
+        loadPolynomialData, pathModelFolder, modelName, 
+        pathMotionFile4Polynomials, leftPolynomialJoints, 
+        leftSideMuscles[:-3], side='l')
+    polynomialData['trunk'] = getPolynomialData(
+        loadPolynomialData, pathModelFolder, modelName, 
+        pathMotionFile4Polynomials, trunkPolynomialJoints, trunkMuscles,
+        side='trunk')
     if loadPolynomialData:
-        polynomialData = polynomialData.item()
+        polynomialData['r'] = polynomialData['r'].item()
+        polynomialData['l'] = polynomialData['l'].item()
+        polynomialData['trunk'] = polynomialData['trunk'].item()
     
     # The function f_polynomial takes as inputs joint positions and velocities
     # from one side (trunk included), and returns muscle-tendon lengths,
     # velocities, and moments for the muscle of that side (trunk included).
-    f_polynomial = polynomialApproximation(muscles, polynomialData,
-                                           nPolynomialJoints)
+    f_polynomial = {}
+    f_polynomial['r'] = polynomialApproximation(
+        rightSideMuscles[:-3], polynomialData['r'], len(rightPolynomialJoints))
+    f_polynomial['l'] = polynomialApproximation(
+        leftSideMuscles[:-3], polynomialData['l'], len(rightPolynomialJoints))
+    f_polynomial['trunk'] = polynomialApproximation(
+        trunkMuscles, polynomialData['trunk'], len(trunkPolynomialJoints))
     leftPolJointIdx = getJointIndices(joints, leftPolynomialJoints)
     rightPolJointIdx = getJointIndices(joints, rightPolynomialJoints)
+    trunkPolJointIdx = getJointIndices(joints, trunkPolynomialJoints)
     
-    # The left and right polynomialMuscleIndices below are used to identify
-    # the left and right muscles in the output of f_polynomial. Since
-    # f_polynomial return data from side muscles (trunk included), we have the
-    # side leg muscles + all trunk muscles as output. Here we make sure we
-    # only include the side trunk muscles when identifying all side muscles.
-    # This is pretty sketchy I know.    
-    rightPolMuscleIdx = [muscles.index(i) for i in rightSideMuscles]
-    rightTrunkMuscles = ['ercspn_r', 'intobl_r', 'extobl_r']
-    leftTrunkMuscles = ['ercspn_l', 'intobl_l', 'extobl_l']
-    leftPolMuscleIdx = (
-        [muscles.index(i) for i in rightSideMuscles 
-         if i not in rightTrunkMuscles] + 
-        [muscles.index(i) for i in leftTrunkMuscles])
+    # Helper indices.  
+    sidePolMuscleIdx = [muscles.index(i) for i in rightSideMuscles[:-3]]
+    leftTrunkPolMuscleIdx = [trunkMuscles.index(i) for i in leftTrunkMuscles]
+    rightTrunkPolMuscleIdx = [trunkMuscles.index(i) for i in rightTrunkMuscles]   
     from utilities import getMomentArmIndices
     momentArmIndices = getMomentArmIndices(
         rightSideMuscles, leftPolynomialJoints, rightPolynomialJoints,
-        polynomialData)
+        polynomialData['r'])
+    for joint in trunkPolynomialJoints:
+        momentArmIndices[joint] = getJointIndices(bothSidesMuscles, 
+                                                  trunkMuscles)
+    
     trunkMomentArmPolynomialIndices = (
         [muscles.index(i) for i in leftTrunkMuscles] + 
         [muscles.index(i) for i in rightTrunkMuscles])
@@ -453,10 +473,12 @@ for case in cases:
             pathModelFolder, 'data4PolynomialFitting_{}.npy'.format(modelName))
         data4PolynomialFitting = np.load(path_data4PolynomialFitting, 
                                          allow_pickle=True).item()
-        momentArms = testPolynomials(
-            data4PolynomialFitting, rightPolynomialJoints, muscles, 
-            f_polynomial, polynomialData, momentArmIndices,
-            trunkMomentArmPolynomialIndices)
+        _ = testPolynomials(data4PolynomialFitting, rightPolynomialJoints, 
+                            rightSideMuscles[:-3], f_polynomial['r'], 
+                            polynomialData['r'], momentArmIndices)
+        _ = testPolynomials(data4PolynomialFitting, leftPolynomialJoints, 
+                            leftSideMuscles[:-3], f_polynomial['l'], 
+                            polynomialData['l'], momentArmIndices)
         
     # %% External function.
     # The external function is written in C++ and compiled as a library, which
@@ -901,28 +923,36 @@ for case in cases:
             # Left side.
             Qsinj_l = Qskj_nsc[leftPolJointIdx, j+1]
             Qdsinj_l = Qdskj_nsc[leftPolJointIdx, j+1]
-            [lMTj_l, vMTj_l, dMj_l] = f_polynomial(Qsinj_l, Qdsinj_l)
+            [lMTj_l, vMTj_l, dMj_l] = f_polynomial['l'](Qsinj_l, Qdsinj_l)
             # Right side.
             Qsinj_r = Qskj_nsc[rightPolJointIdx, j+1]
             Qdsinj_r = Qdskj_nsc[rightPolJointIdx, j+1]
-            [lMTj_r, vMTj_r, dMj_r] = f_polynomial(Qsinj_r, Qdsinj_r)
-            # Muscle-tendon lengths and velocities.        
-            lMTj_lr = ca.vertcat(lMTj_l[leftPolMuscleIdx], 
-                                 lMTj_r[rightPolMuscleIdx])
-            vMTj_lr = ca.vertcat(vMTj_l[leftPolMuscleIdx], 
-                                 vMTj_r[rightPolMuscleIdx])
+            [lMTj_r, vMTj_r, dMj_r] = f_polynomial['r'](Qsinj_r, Qdsinj_r)
+            # Trunk.
+            Qsinj_trunk = Qskj_nsc[trunkPolJointIdx, j+1]
+            Qdsinj_trunk = Qdskj_nsc[trunkPolJointIdx, j+1]
+            [lMTj_trunk, vMTj_trunk, dMj_trunk] = f_polynomial['trunk'](
+                Qsinj_trunk, Qdsinj_trunk)
+            # Muscle-tendon lengths and velocities.
+            lMTj_lr = ca.vertcat(lMTj_l[sidePolMuscleIdx],
+                                 lMTj_trunk[leftTrunkPolMuscleIdx],
+                                 lMTj_r[sidePolMuscleIdx],
+                                 lMTj_trunk[rightTrunkPolMuscleIdx])
+            vMTj_lr = ca.vertcat(vMTj_l[sidePolMuscleIdx],
+                                 vMTj_trunk[leftTrunkPolMuscleIdx],
+                                 vMTj_r[sidePolMuscleIdx],
+                                 vMTj_trunk[rightTrunkPolMuscleIdx],)
             # Moment arms.
             dMj = {}
             # Left side.
-            for joint in leftPolynomialJoints:
+            for c_j, joint in enumerate(leftPolynomialJoints):
                 if ((joint != 'mtp_angle_l') and 
                     (joint != 'lumbar_extension') and
                     (joint != 'lumbar_bending') and 
                     (joint != 'lumbar_rotation')):
-                        dMj[joint] = dMj_l[momentArmIndices[joint], 
-                                           leftPolynomialJoints.index(joint)]
+                        dMj[joint] = dMj_l[momentArmIndices[joint], c_j]
             # Right side.
-            for joint in rightPolynomialJoints:
+            for c_j, joint in enumerate(rightPolynomialJoints):
                 if ((joint != 'mtp_angle_r') and 
                     (joint != 'lumbar_extension') and
                     (joint != 'lumbar_bending') and 
@@ -932,12 +962,10 @@ for case in cases:
                         # subtract by the number of side muscles.
                         c_ma = [
                             i - nSideMuscles for i in momentArmIndices[joint]]
-                        dMj[joint] = dMj_r[c_ma,
-                                           rightPolynomialJoints.index(joint)]
+                        dMj[joint] = dMj_r[c_ma, c_j]
             # Trunk.
-            for joint in trunkJoints:
-                dMj[joint] = dMj_l[trunkMomentArmPolynomialIndices, 
-                                   leftPolynomialJoints.index(joint)]            
+            for c_j, joint in enumerate(trunkJoints):
+                dMj[joint] = dMj_trunk[:, c_j]            
             
             ###################################################################
             # Hill-equilibrium.       
@@ -1462,16 +1490,25 @@ for case in cases:
             # Left leg.
             Qsk_GC_l = Qs_GC_rad[leftPolJointIdx, k]
             Qdsk_GC_l = Qds_GC_rad[leftPolJointIdx, k]
-            [lMTk_GC_l, vMTk_GC_l, _] = f_polynomial(Qsk_GC_l, Qdsk_GC_l)       
+            [lMTk_GC_l, vMTk_GC_l, _] = f_polynomial['l'](Qsk_GC_l, Qdsk_GC_l)       
             # Right leg.
             Qsk_GC_r = Qs_GC_rad[rightPolJointIdx, k]
             Qdsk_GC_r = Qds_GC_rad[rightPolJointIdx, k]
-            [lMTk_GC_r, vMTk_GC_r, _] = f_polynomial(Qsk_GC_r, Qdsk_GC_r)
+            [lMTk_GC_r, vMTk_GC_r, _] = f_polynomial['r'](Qsk_GC_r, Qdsk_GC_r)
+            # Trunk.
+            Qsk_GC_trunk = Qs_GC_rad[trunkPolJointIdx, k]
+            Qdsk_GC_trunk = Qds_GC_rad[trunkPolJointIdx, k]
+            [lMTk_GC_trunk, vMTk_GC_trunk, _] = f_polynomial['trunk'](
+                Qsk_GC_trunk, Qdsk_GC_trunk)
             # Both leg.
-            lMTk_GC_lr = ca.vertcat(lMTk_GC_l[leftPolMuscleIdx], 
-                                     lMTk_GC_r[rightPolMuscleIdx])
-            vMTk_GC_lr = ca.vertcat(vMTk_GC_l[leftPolMuscleIdx], 
-                                     vMTk_GC_r[rightPolMuscleIdx])
+            lMTk_GC_lr = ca.vertcat(lMTk_GC_l[sidePolMuscleIdx],
+                                    lMTk_GC_trunk[leftTrunkPolMuscleIdx],
+                                    lMTk_GC_r[sidePolMuscleIdx],
+                                    lMTk_GC_trunk[rightTrunkPolMuscleIdx])
+            vMTk_GC_lr = ca.vertcat(vMTk_GC_l[sidePolMuscleIdx],
+                                    vMTk_GC_trunk[leftTrunkPolMuscleIdx],
+                                    vMTk_GC_r[sidePolMuscleIdx],
+                                    vMTk_GC_trunk[rightTrunkPolMuscleIdx])
             
             ###################################################################
             # Derive Hill-equilibrium.       
@@ -1621,18 +1658,29 @@ for case in cases:
                 # Left leg.
                 Qsinj_opt_l = Qskj_opt_nsc[leftPolJointIdx, j+1]
                 Qdsinj_opt_l = Qdskj_opt_nsc[leftPolJointIdx, j+1]
-                [lMTj_opt_l, vMTj_opt_l, _] = f_polynomial(Qsinj_opt_l,
+                [lMTj_opt_l, vMTj_opt_l, _] = f_polynomial['l'](Qsinj_opt_l,
                                                            Qdsinj_opt_l)       
                 # Right leg.
                 Qsinj_opt_r = Qskj_opt_nsc[rightPolJointIdx, j+1]
                 Qdsinj_opt_r = Qdskj_opt_nsc[rightPolJointIdx, j+1]
-                [lMTj_opt_r, vMTj_opt_r, _] = f_polynomial(Qsinj_opt_r,
+                [lMTj_opt_r, vMTj_opt_r, _] = f_polynomial['r'](Qsinj_opt_r,
                                                            Qdsinj_opt_r)
+                # Trunk.
+                Qsinj_opt_trunk = Qskj_opt_nsc[trunkPolJointIdx, j+1]
+                Qdsinj_opt_trunk = Qdskj_opt_nsc[trunkPolJointIdx, j+1]
+                [lMTj_opt_trunk, vMTj_opt_trunk, _] = f_polynomial['trunk'](
+                    Qsinj_opt_trunk, Qdsinj_opt_trunk)
                 # Both legs        .
-                lMTj_opt_lr = ca.vertcat(lMTj_opt_l[leftPolMuscleIdx], 
-                                         lMTj_opt_r[rightPolMuscleIdx])
-                vMTj_opt_lr = ca.vertcat(vMTj_opt_l[leftPolMuscleIdx], 
-                                         vMTj_opt_r[rightPolMuscleIdx])
+                lMTj_opt_lr = ca.vertcat(
+                    lMTj_opt_l[sidePolMuscleIdx],
+                    lMTj_opt_trunk[leftTrunkPolMuscleIdx],
+                    lMTj_opt_r[sidePolMuscleIdx],
+                    lMTj_opt_trunk[rightTrunkPolMuscleIdx])
+                vMTj_opt_lr = ca.vertcat(
+                    vMTj_opt_l[sidePolMuscleIdx],
+                    vMTj_opt_trunk[leftTrunkPolMuscleIdx],
+                    vMTj_opt_r[sidePolMuscleIdx],
+                    vMTj_opt_trunk[rightTrunkPolMuscleIdx],)
                 
                 ###############################################################
                 # Derive Hill-equilibrium.
