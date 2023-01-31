@@ -190,23 +190,27 @@ def getJointIndices(joints, selectedJoints):
     return jointIndices
 
 # %% Get moment arm indices.
-def getMomentArmIndices(rightMuscles, leftPolynomialJoints,
+def getMomentArmIndices(muscles, leftPolynomialJoints,
                         rightPolynomialJoints, polynomialData):
          
     momentArmIndices = {}
-    for count, muscle in enumerate(rightMuscles):        
+    for count, muscle in enumerate(muscles): 
+        if not muscle in polynomialData:
+            continue
         spanning = polynomialData[muscle]['spanning']
         for i in range(len(spanning)):
             if (spanning[i] == 1):
                 momentArmIndices.setdefault(
                         leftPolynomialJoints[i], []).append(count)
-    for count, muscle in enumerate(rightMuscles):        
+    for count, muscle in enumerate(muscles):
+        if not muscle in polynomialData:
+            continue
         spanning = polynomialData[muscle]['spanning']
         for i in range(len(spanning)):
             if (spanning[i] == 1):
                 momentArmIndices.setdefault(
                         rightPolynomialJoints[i], []).append(
-                                count + len(rightMuscles))                
+                                count + len(muscles))                
         
     return momentArmIndices
 
@@ -453,24 +457,35 @@ def nSubplots(N):
     return ny_a, ny_b
 
 # %% Compute index initial contact from GRFs.
-def getIdxIC_3D(GRF_opt, threshold):    
-    idxIC = np.nan
-    N = GRF_opt.shape[1]
-    legIC = "undefined"    
-    GRF_opt_rl = np.concatenate((GRF_opt[1,:], GRF_opt[4,:]))
-    last_noContact = np.argwhere(GRF_opt_rl < threshold)[-1]
-    if last_noContact == 2*N - 1:
-        first_contact = np.argwhere(GRF_opt_rl > threshold)[0]
-    else:
-        first_contact = last_noContact + 1
-    if first_contact >= N:
-        idxIC = first_contact - N
-        legIC = "left"
-    else:
-        idxIC = first_contact
-        legIC = "right"
+def getIdxIC_3D(GRF_opt, threshold, gaitCycleSimulation='half'):
+    
+    if gaitCycleSimulation == 'half':
+        idxIC = np.nan
+        N = GRF_opt.shape[1]
+        legIC = "undefined"    
+        GRF_opt_rl = np.concatenate((GRF_opt[1,:], GRF_opt[4,:]))
+        last_noContact = np.argwhere(GRF_opt_rl < threshold)[-1]
+        if last_noContact == 2*N - 1:
+            first_contact = np.argwhere(GRF_opt_rl > threshold)[0]
+        else:
+            first_contact = last_noContact + 1
+        if first_contact >= N:
+            idxIC = first_contact - N
+            legIC = "left"
+        else:
+            idxIC = first_contact
+            legIC = "right"
+    elif gaitCycleSimulation == 'full':
+        # TODO no much testing done here
+        contacts = np.where(GRF_opt > threshold)[0]
+        for contact in contacts:
+            if contact > 0:
+                if GRF_opt[contact-1] < threshold:
+                    idxIC = contact
+        legIC = "right"            
             
     return idxIC, legIC
+
       
 # %% Compute RMSE.      
 def getRMSE(predictions, targets):

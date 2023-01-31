@@ -22,9 +22,12 @@ class coldStart:
         self.targetSpeed = targetSpeed
         self.muscles = muscles
         
-    def getGuessFinalTime(self):
+    def getGuessFinalTime(self, gaitCycleSimulation):
         allSpeeds = np.linspace(0.73, 2.73,  21)
-        allFinalTimes = np.linspace(0.70, 0.35, 21)
+        if gaitCycleSimulation == 'half':
+            allFinalTimes = np.linspace(0.70, 0.35, 21)
+        elif gaitCycleSimulation == 'full':
+            allFinalTimes = np.linspace(0.70*2, 0.35*2, 21)
         idxTargetSpeed = np.argmax(allSpeeds >= self.targetSpeed)
         self.guessFinalTime = allFinalTimes[idxTargetSpeed]
         
@@ -247,9 +250,12 @@ class hotStart:
             set_interp = interp1d(self.Qs['time'], self.Qdotdots_spline[joint])
             self.Qdotdots_spline_interp.insert(count, joint, set_interp(tOut))
         
-    def getGuessFinalTime(self):
+    def getGuessFinalTime(self, gaitCycleSimulation='half'):
         allSpeeds = np.linspace(0.73, 2.73,  21)
-        allFinalTimes = np.linspace(0.70, 0.35, 21)
+        if gaitCycleSimulation == 'half':
+            allFinalTimes = np.linspace(0.70, 0.35, 21)
+        elif gaitCycleSimulation == 'full':
+            allFinalTimes = np.linspace(0.70*2, 0.35*2, 21)
         idxTargetSpeed = np.argmax(allSpeeds >= self.targetSpeed)
         self.guessFinalTime = allFinalTimes[idxTargetSpeed]
         

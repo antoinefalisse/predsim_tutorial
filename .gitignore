@@ -19,6 +19,10 @@ OpenSimModel/Hamner_modified_stifferContacts/*
 OpenSimModel/Hamner_modified_weakerGluts/*
 !OpenSimModel/Hamner_modified_weakerGluts/Model
 
+!OpenSimModel/Hamner_modified_weakerRightGluts
+OpenSimModel/Hamner_modified_weakerRightGluts/*
+!OpenSimModel/Hamner_modified_weakerRightGluts/Model
+
 !OpenSimModel/templates
 
 data4PolynomialFitting*
