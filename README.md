@@ -78,7 +78,7 @@ Thus far, you have generated simulations for half a gait cycle, assuming left-ri
 4. Associate Motion Data, eg `Results/Case_0_ref/GRF.mot`
 
 # Warning
-We made some assumptions for the examples of this tutorial. Make sure you verify what you are doing if you end up using this code beyong the provided examples. Also, please remember that generating walking simulatinos involves solving large optimization problems. It is highly possible that your problems converge to local minima. You should always do some sensitivity analyses to make sure that your solutions make sense (eg, does your solution change if you increase the number of mesh intervals or use a different initial guess).
+We made some assumptions for the examples of this tutorial. Make sure you verify what you are doing if you end up using this code beyond the provided examples. Also, please remember that generating walking simulatinos involves solving large optimization problems. It is highly possible that your problems converge to local minima. You should always do some sensitivity analyses to make sure that your solutions make sense (eg, does your solution change if you increase the number of mesh intervals or use a different initial guess).
 
 # Citation
 This work is covered in three publications. Please consider citing these papers:
