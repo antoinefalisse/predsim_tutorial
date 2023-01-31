@@ -365,8 +365,12 @@ class bounds:
         return (upperBoundsMtpActivation, lowerBoundsMtpActivation, 
                 scalingMtpActivation)
     
-    def getBoundsFinalTime(self):
-        upperBoundsFinalTime = pd.DataFrame([1], columns=['time'])   
-        lowerBoundsFinalTime = pd.DataFrame([0.1], columns=['time'])  
-        
+    def getBoundsFinalTime(self, gaitCycleSimulation='half'):
+        if gaitCycleSimulation == 'half':
+            upperBoundsFinalTime = pd.DataFrame([1], columns=['time'])
+            lowerBoundsFinalTime = pd.DataFrame([0.1], columns=['time'])
+        elif gaitCycleSimulation == 'full':
+            upperBoundsFinalTime = pd.DataFrame([2], columns=['time'])
+            lowerBoundsFinalTime = pd.DataFrame([0.2], columns=['time'])
+            
         return upperBoundsFinalTime, lowerBoundsFinalTime

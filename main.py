@@ -25,7 +25,7 @@ import platform
 # results. Yet if you solved the optimal control problem and saved the results,
 # you might want to latter only load and process the results without re-solving
 # the problem. Playing with the settings below allows you to do exactly that.
-solveProblem = True # Set True to solve the optimal control problem.
+solveProblem = False # Set True to solve the optimal control problem.
 saveResults = True # Set True to save the results of the optimization.
 analyzeResults = True # Set True to analyze the results.
 loadResults = True # Set True to load the results of the optimization.
@@ -35,7 +35,7 @@ saveOptimalTrajectories = True # Set True to save optimal trajectories
 # Select the case(s) for which you want to solve the associated problem(s) or
 # process the results. Specify the settings of the case(s) in the
 # 'settings' module.
-cases = [str(i) for i in range(0,1)]
+cases = [str(i) for i in range(5,6)]
         
 # Import settings.
 from settings import getSettings   
@@ -62,7 +62,7 @@ for case in cases:
     if 'contactConfiguration' in settings[case]:
         contactConfiguration = settings[case]['contactConfiguration']
     
-    dampingMtp = 1.9
+    dampingMtp = 1.9 # default metatarsophalangeal (MTP) joint damping
     if 'dampingMtp' in settings[case]:
         dampingMtp = settings[case]['dampingMtp']
         
@@ -71,6 +71,13 @@ for case in cases:
     targetSpeed = 1.33 # default target walking.
     if 'targetSpeed' in settings[case]:
         targetSpeed = settings[case]['targetSpeed']
+        
+    # By default, we simulate for half a gait cycle. Set to "full" to simulate
+    # for a full gait cycle. Simulating for a full gait cycle is useful to
+    # the effect of for example asymmetries in muscle path or parameters.
+    gaitCycleSimulation = "half" # 
+    if 'gaitCycleSimulation' in settings[case]:
+        gaitCycleSimulation = settings[case]['gaitCycleSimulation']
         
     guessType = 'hotStart' # default initial guess mode.
     if 'guessType' in settings[case]:
@@ -287,6 +294,25 @@ for case in cases:
         for joint in mtpJoints:
             periodicQsJointsB.remove(joint)
     idxPerQsJointsB = getJointIndices(joints, periodicQsJointsB)
+    # The joint positions in periodicQsJointsC after a full gait cycle should
+    # match the positions in periodicQsJointsC at the first time instant. We
+    # inlcude all coordinates but pelvis_tx for a fully periodic motion.
+    periodicQsJointsC = ['pelvis_tilt', 'pelvis_list', 'pelvis_rotation',
+              'pelvis_ty', 'pelvis_tz', 
+              'hip_flexion_l', 'hip_adduction_l', 'hip_rotation_l', 
+              'hip_flexion_r', 'hip_adduction_r', 'hip_rotation_r', 
+              'knee_angle_l', 'knee_angle_r', 
+              'ankle_angle_l', 'ankle_angle_r', 
+              'subtalar_angle_l', 'subtalar_angle_r', 
+              'mtp_angle_l', 'mtp_angle_r', 
+              'lumbar_extension', 'lumbar_bending', 'lumbar_rotation', 
+              'arm_flex_l', 'arm_add_l', 'arm_rot_l',
+              'arm_flex_r', 'arm_add_r', 'arm_rot_r', 
+              'elbow_flex_l', 'elbow_flex_r']
+    if not withMTP:
+        for joint in mtpJoints:
+            periodicQsJointsB.remove(joint)
+    idxPerQsJointsC = getJointIndices(joints, periodicQsJointsC)
     
     # The joint velocities in periodicQdsJointsA after half a gait cycle
     # should match the velocities in periodicQdsJointsB at the first time
@@ -599,7 +625,10 @@ for case in cases:
     # %% Bounds of the optimal control problem.
     # Load average walking motion used for setting up some of the bounds and 
     # initial guess.
-    nametrial_walk_IK = 'IK_InitialGuess.mot'
+    if gaitCycleSimulation == 'half':
+        nametrial_walk_IK = 'IK_InitialGuess_halfGaitCycle.mot'
+    elif gaitCycleSimulation == 'full':
+        nametrial_walk_IK = 'IK_InitialGuess_fullGaitCycle.mot'        
     pathIK_walk = os.path.join(pathOpenSimModel, 'templates', 
                                'InverseKinematics', nametrial_walk_IK)
     from utilities import getIK
@@ -610,7 +639,7 @@ for case in cases:
                     targetSpeed)
     
     # Static parameters.
-    ubFinalTime, lbFinalTime = bounds.getBoundsFinalTime()
+    ubFinalTime, lbFinalTime = bounds.getBoundsFinalTime(gaitCycleSimulation)
     
     # States.
     ubA, lbA, scalingA = bounds.getBoundsActivation()
@@ -679,7 +708,7 @@ for case in cases:
                          periodicQdsJointsA, periodicOppositeJoints)
 
     # Static parameters.
-    gFinalTime = guess.getGuessFinalTime()
+    gFinalTime = guess.getGuessFinalTime(gaitCycleSimulation)
     
     # States.
     gA = guess.getGuessActivation(scalingA)
@@ -884,8 +913,7 @@ for case in cases:
         tau = ca.collocation_points(d,'radau');
         [C,D] = ca.collocation_interpolators(tau);
         # Missing matrix B, add manually.
-        B = [-8.88178419700125e-16, 0.376403062700467, 0.512485826188421, 
-             0.111111111111111]
+        B = [0, 0.376403062700467, 0.512485826188421, 0.111111111111111]
         
         #######################################################################
         # Initialize cost function and constraint vectors.
@@ -1165,21 +1193,33 @@ for case in cases:
             
         #######################################################################
         # Periodic constraints on states.
-        # Joint positions and velocities.
-        opti.subject_to(Qs[idxPerQsJointsA ,-1] - 
-                        Qs[idxPerQsJointsB, 0] == 0)
-        opti.subject_to(Qds[idxPerQdsJointsA ,-1] - 
-                        Qds[idxPerQdsJointsB, 0] == 0)
-        opti.subject_to(Qs[idxPerOppJoints ,-1] + 
-                        Qs[idxPerOppJoints, 0] == 0)
-        opti.subject_to(Qds[idxPerOppJoints ,-1] + 
-                        Qds[idxPerOppJoints, 0] == 0)
-        # Muscle activations.
-        opti.subject_to(a[:, -1] - a[idxPerMuscles, 0] == 0)
-        # Tendon forces.
-        opti.subject_to(normF[:, -1] - normF[idxPerMuscles, 0] == 0)
-        # Arm activations.
-        opti.subject_to(aArm[:, -1] - aArm[idxPerArmJoints, 0] == 0)
+        if gaitCycleSimulation == 'half':
+            # Joint positions and velocities.
+            opti.subject_to(Qs[idxPerQsJointsA ,-1] - 
+                            Qs[idxPerQsJointsB, 0] == 0)
+            opti.subject_to(Qds[idxPerQdsJointsA ,-1] - 
+                            Qds[idxPerQdsJointsB, 0] == 0)
+            opti.subject_to(Qs[idxPerOppJoints ,-1] + 
+                            Qs[idxPerOppJoints, 0] == 0)
+            opti.subject_to(Qds[idxPerOppJoints ,-1] + 
+                            Qds[idxPerOppJoints, 0] == 0)
+            # Muscle activations.
+            opti.subject_to(a[:, -1] - a[idxPerMuscles, 0] == 0)
+            # Tendon forces.
+            opti.subject_to(normF[:, -1] - normF[idxPerMuscles, 0] == 0)
+            # Arm activations.
+            opti.subject_to(aArm[:, -1] - aArm[idxPerArmJoints, 0] == 0)
+        elif gaitCycleSimulation == 'full':
+            # Joint positions and velocities.
+            opti.subject_to(Qs[idxPerQsJointsC ,-1] - 
+                            Qs[idxPerQsJointsC, 0] == 0)
+            opti.subject_to(Qds[: ,-1] - Qds[:, 0] == 0)
+            # Muscle activations.
+            opti.subject_to(a[:, -1] - a[:, 0] == 0)
+            # Tendon forces.
+            opti.subject_to(normF[:, -1] - normF[:, 0] == 0)
+            # Arm activations.
+            opti.subject_to(aArm[:, -1] - aArm[:, 0] == 0)
         
         #######################################################################
         # Average speed constraint.
@@ -1366,104 +1406,161 @@ for case in cases:
                 "error mtp torques balance")   
         
         # %% Reconstruct entire gait cycle starting at right heel-strike.
-        from utilities import getIdxIC_3D
         threshold = 30
-        idxIC, legIC = getIdxIC_3D(GRF_opt, threshold)
-        if legIC == "undefined":
-            np.disp("Problem with gait reconstruction")  
-        idxIC_s = idxIC + 1 # GRF_opt obtained at mesh points starting at k=1.
-        idxIC_c = idxIC 
-            
-        # Joint positions.
-        Qs_GC = np.zeros((nJoints, 2*N))
-        Qs_GC[:, :N-idxIC_s[0]] = Qs_opt_nsc[:, idxIC_s[0]:-1]
-        Qs_GC[idxPerQsJointsA, N-idxIC_s[0]:N-idxIC_s[0]+N] = (
-                Qs_opt_nsc[idxPerQsJointsB, :-1])
-        Qs_GC[idxPerOppJoints, N-idxIC_s[0]:N-idxIC_s[0]+N] = (
-                -Qs_opt_nsc[idxPerOppJoints, :-1])
-        Qs_GC[joints.index('pelvis_tx'), N-idxIC_s[0]:N-idxIC_s[0]+N]  = (
-                Qs_opt_nsc[joints.index('pelvis_tx'), :-1] + 
-                Qs_opt_nsc[joints.index('pelvis_tx'), -1])
-        Qs_GC[:, N-idxIC_s[0]+N:2*N] = Qs_opt_nsc[:,:idxIC_s[0]] 
-        Qs_GC[joints.index('pelvis_tx'), N-idxIC_s[0]+N:2*N] = (
-                Qs_opt_nsc[joints.index('pelvis_tx'),:idxIC_s[0]] + 
-                2*Qs_opt_nsc[joints.index('pelvis_tx'), -1])
-        if legIC == "left":
-            Qs_GC[idxPerQsJointsA, :] = Qs_GC[idxPerQsJointsB, :]
-            Qs_GC[idxPerOppJoints, :] = (
-                    -Qs_GC[idxPerOppJoints, :])
-        Qs_GC[joints.index('pelvis_tx'), :] -= (
-            Qs_GC[joints.index('pelvis_tx'), 0])
-        Qs_GC[idxRotJoints, :] = Qs_GC[idxRotJoints, :] * 180 / np.pi
-    
-        # Joint velocities.
-        Qds_GC = np.zeros((nJoints, 2*N))
-        Qds_GC[:, :N-idxIC_s[0]] = Qds_opt_nsc[:, idxIC_s[0]:-1]
-        Qds_GC[idxPerQdsJointsA, N-idxIC_s[0]:N-idxIC_s[0]+N] = (
-                Qds_opt_nsc[idxPerQdsJointsB, :-1])
-        Qds_GC[idxPerQdsJointsA, N-idxIC_s[0]:N-idxIC_s[0]+N] = (
-                Qds_opt_nsc[idxPerQdsJointsB, :-1])
-        Qds_GC[idxPerOppJoints, N-idxIC_s[0]:N-idxIC_s[0]+N] = (
-                -Qds_opt_nsc[idxPerOppJoints, :-1])
-        Qds_GC[:, N-idxIC_s[0]+N:2*N] = Qds_opt_nsc[:,:idxIC_s[0]] 
-        if legIC == "left":
-            Qds_GC[idxPerQdsJointsA, :] = Qds_GC[idxPerQdsJointsB, :]
-            Qds_GC[idxPerOppJoints, :] = -Qds_GC[idxPerOppJoints, :]
-        Qds_GC[idxRotJoints, :] = Qds_GC[idxRotJoints, :] * 180 / np.pi
+        from utilities import getIdxIC_3D      
+        if gaitCycleSimulation == 'half':
+            N_gaitCycle = 2*N                  
+            idxIC, legIC = getIdxIC_3D(GRF_opt, threshold)
+            if legIC == "undefined":
+                np.disp("Problem with gait reconstruction")  
+            idxIC_s = idxIC + 1 # GRF_opt at mesh points starting at k=1.
+            idxIC_c = idxIC                 
+            # Joint positions.
+            Qs_GC = np.zeros((nJoints, N_gaitCycle))
+            Qs_GC[:, :N-idxIC_s[0]] = Qs_opt_nsc[:, idxIC_s[0]:-1]
+            Qs_GC[idxPerQsJointsA, N-idxIC_s[0]:N-idxIC_s[0]+N] = (
+                    Qs_opt_nsc[idxPerQsJointsB, :-1])
+            Qs_GC[idxPerOppJoints, N-idxIC_s[0]:N-idxIC_s[0]+N] = (
+                    -Qs_opt_nsc[idxPerOppJoints, :-1])
+            Qs_GC[joints.index('pelvis_tx'), N-idxIC_s[0]:N-idxIC_s[0]+N]  = (
+                    Qs_opt_nsc[joints.index('pelvis_tx'), :-1] + 
+                    Qs_opt_nsc[joints.index('pelvis_tx'), -1])
+            Qs_GC[:, N-idxIC_s[0]+N:N_gaitCycle] = Qs_opt_nsc[:,:idxIC_s[0]] 
+            Qs_GC[joints.index('pelvis_tx'), N-idxIC_s[0]+N:N_gaitCycle] = (
+                    Qs_opt_nsc[joints.index('pelvis_tx'),:idxIC_s[0]] + 
+                    2*Qs_opt_nsc[joints.index('pelvis_tx'), -1])
+            if legIC == "left":
+                Qs_GC[idxPerQsJointsA, :] = Qs_GC[idxPerQsJointsB, :]
+                Qs_GC[idxPerOppJoints, :] = (
+                        -Qs_GC[idxPerOppJoints, :])
+            Qs_GC[joints.index('pelvis_tx'), :] -= (
+                Qs_GC[joints.index('pelvis_tx'), 0])
+            Qs_GC[idxRotJoints, :] = Qs_GC[idxRotJoints, :] * 180 / np.pi
         
-        # Joint accelerations.        
-        Qdds_GC = np.zeros((nJoints, 2*N))
-        Qdds_GC[:, :N-idxIC_c[0]] = Qdds_opt[:, idxIC_c[0]:]
-        Qdds_GC[idxPerQdsJointsA, N-idxIC_c[0]:N-idxIC_c[0]+N] = (
-                Qdds_opt[idxPerQdsJointsB, :])
-        Qdds_GC[idxPerOppJoints, N-idxIC_c[0]:N-idxIC_c[0]+N] = (
-                -Qdds_opt[idxPerOppJoints, :])
-        Qdds_GC[:, N-idxIC_c[0]+N:2*N] = Qdds_opt[:,:idxIC_c[0]] 
-        if legIC == "left":
-            Qdds_GC[idxPerQdsJointsA, :] = Qdds_GC[idxPerQdsJointsB, :]
-            Qdds_GC[idxPerOppJoints, :] = -Qdds_GC[idxPerOppJoints, :]
-        Qdds_GC[idxRotJoints, :] = Qdds_GC[idxRotJoints, :] * 180 / np.pi
-        
-        # Muscle activations.
-        A_GC = np.zeros((nMuscles, 2*N))
-        A_GC[:, :N-idxIC_s[0]] = a_opt[:, idxIC_s[0]:-1]
-        A_GC[:, N-idxIC_s[0]:N-idxIC_s[0]+N] = a_opt[idxPerMuscles, :-1]
-        A_GC[:, N-idxIC_s[0]+N:2*N] = a_opt[:,:idxIC_s[0]] 
-        if legIC == "left":
-            A_GC = A_GC[idxPerMuscles, :]
+            # Joint velocities.
+            Qds_GC = np.zeros((nJoints, N_gaitCycle))
+            Qds_GC[:, :N-idxIC_s[0]] = Qds_opt_nsc[:, idxIC_s[0]:-1]
+            Qds_GC[idxPerQdsJointsA, N-idxIC_s[0]:N-idxIC_s[0]+N] = (
+                    Qds_opt_nsc[idxPerQdsJointsB, :-1])
+            Qds_GC[idxPerQdsJointsA, N-idxIC_s[0]:N-idxIC_s[0]+N] = (
+                    Qds_opt_nsc[idxPerQdsJointsB, :-1])
+            Qds_GC[idxPerOppJoints, N-idxIC_s[0]:N-idxIC_s[0]+N] = (
+                    -Qds_opt_nsc[idxPerOppJoints, :-1])
+            Qds_GC[:, N-idxIC_s[0]+N:N_gaitCycle] = Qds_opt_nsc[:,:idxIC_s[0]] 
+            if legIC == "left":
+                Qds_GC[idxPerQdsJointsA, :] = Qds_GC[idxPerQdsJointsB, :]
+                Qds_GC[idxPerOppJoints, :] = -Qds_GC[idxPerOppJoints, :]
+            Qds_GC[idxRotJoints, :] = Qds_GC[idxRotJoints, :] * 180 / np.pi
             
-        # Tendon forces.
-        F_GC = np.zeros((nMuscles, 2*N))
-        F_GC[:, :N-idxIC_s[0]] = normF_opt_nsc[:, idxIC_s[0]:-1]
-        F_GC[:, N-idxIC_s[0]:N-idxIC_s[0]+N] = (
-            normF_opt_nsc[idxPerMuscles, :-1])
-        F_GC[:, N-idxIC_s[0]+N:2*N] = normF_opt_nsc[:,:idxIC_s[0]] 
-        if legIC == "left":
-            F_GC = F_GC[idxPerMuscles, :]
+            # Joint accelerations.        
+            Qdds_GC = np.zeros((nJoints, N_gaitCycle))
+            Qdds_GC[:, :N-idxIC_c[0]] = Qdds_opt[:, idxIC_c[0]:]
+            Qdds_GC[idxPerQdsJointsA, N-idxIC_c[0]:N-idxIC_c[0]+N] = (
+                    Qdds_opt[idxPerQdsJointsB, :])
+            Qdds_GC[idxPerOppJoints, N-idxIC_c[0]:N-idxIC_c[0]+N] = (
+                    -Qdds_opt[idxPerOppJoints, :])
+            Qdds_GC[:, N-idxIC_c[0]+N:N_gaitCycle] = Qdds_opt[:,:idxIC_c[0]] 
+            if legIC == "left":
+                Qdds_GC[idxPerQdsJointsA, :] = Qdds_GC[idxPerQdsJointsB, :]
+                Qdds_GC[idxPerOppJoints, :] = -Qdds_GC[idxPerOppJoints, :]
+            Qdds_GC[idxRotJoints, :] = Qdds_GC[idxRotJoints, :] * 180 / np.pi
             
-        # Tendon force derivatives.
-        FDt_GC = np.zeros((nMuscles, 2*N))
-        FDt_GC[:, :N-idxIC_c[0]] = normFDt_opt_nsc[:, idxIC_c[0]:]
-        FDt_GC[:, N-idxIC_c[0]:N-idxIC_c[0]+N] = (
-            normFDt_opt_nsc[idxPerMuscles, :])
-        FDt_GC[:, N-idxIC_c[0]+N:2*N] = normFDt_opt_nsc[:,:idxIC_c[0]] 
-        if legIC == "left":
-            FDt_GC = FDt_GC[idxPerMuscles, :]
+            # Muscle activations.
+            A_GC = np.zeros((nMuscles, N_gaitCycle))
+            A_GC[:, :N-idxIC_s[0]] = a_opt[:, idxIC_s[0]:-1]
+            A_GC[:, N-idxIC_s[0]:N-idxIC_s[0]+N] = a_opt[idxPerMuscles, :-1]
+            A_GC[:, N-idxIC_s[0]+N:N_gaitCycle] = a_opt[:,:idxIC_s[0]] 
+            if legIC == "left":
+                A_GC = A_GC[idxPerMuscles, :]
+                
+            # Tendon forces.
+            F_GC = np.zeros((nMuscles, N_gaitCycle))
+            F_GC[:, :N-idxIC_s[0]] = normF_opt_nsc[:, idxIC_s[0]:-1]
+            F_GC[:, N-idxIC_s[0]:N-idxIC_s[0]+N] = (
+                normF_opt_nsc[idxPerMuscles, :-1])
+            F_GC[:, N-idxIC_s[0]+N:N_gaitCycle] = normF_opt_nsc[:,:idxIC_s[0]] 
+            if legIC == "left":
+                F_GC = F_GC[idxPerMuscles, :]
+                
+            # Tendon force derivatives.
+            FDt_GC = np.zeros((nMuscles, N_gaitCycle))
+            FDt_GC[:, :N-idxIC_c[0]] = normFDt_opt_nsc[:, idxIC_c[0]:]
+            FDt_GC[:, N-idxIC_c[0]:N-idxIC_c[0]+N] = (
+                normFDt_opt_nsc[idxPerMuscles, :])
+            FDt_GC[:, N-idxIC_c[0]+N:N_gaitCycle] = (
+                normFDt_opt_nsc[:,:idxIC_c[0]])
+            if legIC == "left":
+                FDt_GC = FDt_GC[idxPerMuscles, :]
+                
+            # Arm actuator activations.
+            aArm_GC = np.zeros((nArmJoints, N_gaitCycle))
+            aArm_GC[:, :N-idxIC_s[0]] = aArm_opt_nsc[:, idxIC_s[0]:-1]
+            aArm_GC[:, N-idxIC_s[0]:N-idxIC_s[0]+N] = (
+                    aArm_opt_nsc[idxPerArmJoints, :-1])
+            aArm_GC[:, N-idxIC_s[0]+N:N_gaitCycle] = (
+                aArm_opt_nsc[:,:idxIC_s[0]])
+            if legIC == "left":
+                aArm_GC = aArm_GC[idxPerArmJoints, :]
+                
+            # Time grid.
+            tgrid = np.linspace(0, finalTime_opt[0], N+1)
+            tgrid_GC = np.zeros((1, N_gaitCycle)) 
+            tgrid_GC[:,:N] = tgrid[:N].T
+            tgrid_GC[:,N:] = tgrid[:N].T + tgrid[-1].T
             
-        # Arm actuator activations.
-        aArm_GC = np.zeros((nArmJoints, 2*N))
-        aArm_GC[:, :N-idxIC_s[0]] = aArm_opt_nsc[:, idxIC_s[0]:-1]
-        aArm_GC[:, N-idxIC_s[0]:N-idxIC_s[0]+N] = (
-                aArm_opt_nsc[idxPerArmJoints, :-1])
-        aArm_GC[:, N-idxIC_s[0]+N:2*N] = aArm_opt_nsc[:,:idxIC_s[0]] 
-        if legIC == "left":
-            aArm_GC = aArm_GC[idxPerArmJoints, :]
+        elif gaitCycleSimulation == 'full':
+            N_gaitCycle = N
+            idxIC_c, _ = getIdxIC_3D(GRF_opt[1,:], threshold,
+                                     gaitCycleSimulation)
+            idxIC_s = idxIC_c + 1            
+            # Joint positions.
+            Qs_GC = np.zeros((nJoints, N_gaitCycle))
+            Qs_GC[:, :N_gaitCycle-idxIC_s] = Qs_opt_nsc[:, idxIC_s:-1]
+            pelvis_tx_offset = Qs_GC[joints.index("pelvis_tx"), 0]
+            Qs_GC[joints.index("pelvis_tx"), :N-idxIC_s] -= pelvis_tx_offset
+            pelvis_tx_offset_2 = (Qs_opt_nsc[joints.index("pelvis_tx"), -1] - 
+                                  pelvis_tx_offset)
+            Qs_GC[:, N_gaitCycle-idxIC_s:] = Qs_opt_nsc[:,:idxIC_s]
+            Qs_GC[joints.index("pelvis_tx"), 
+                  N-idxIC_s:N_gaitCycle] += pelvis_tx_offset_2
+            Qs_GC[idxRotJoints, :] = Qs_GC[idxRotJoints, :] * 180 / np.pi
             
-        # Time grid.
-        tgrid = np.linspace(0, finalTime_opt[0], N+1)
-        tgrid_GC = np.zeros((1, 2*N)) 
-        tgrid_GC[:,:N] = tgrid[:N].T
-        tgrid_GC[:,N:] = tgrid[:N].T + tgrid[-1].T
+            # Joint velocities.
+            Qds_GC = np.zeros((nJoints, N_gaitCycle))
+            Qds_GC[:, :N_gaitCycle-idxIC_s] = Qds_opt_nsc[:, idxIC_s:-1]
+            Qds_GC[:, N_gaitCycle-idxIC_s:] = Qds_opt_nsc[:,:idxIC_s]
+            Qds_GC[idxRotJoints, :] = Qds_GC[idxRotJoints, :] * 180 / np.pi           
+            
+            # Joint accelerations.        
+            Qdds_GC = np.zeros((nJoints, N_gaitCycle))
+            Qdds_GC[:, :N_gaitCycle-idxIC_c] = Qdds_opt[:, idxIC_c:]
+            Qdds_GC[:, N_gaitCycle-idxIC_c:] = Qds_opt_nsc[:,:idxIC_c]
+            Qdds_GC[idxRotJoints, :] = Qdds_GC[idxRotJoints, :] * 180 / np.pi
+            
+            # Muscle activations.
+            A_GC = np.zeros((nMuscles, N_gaitCycle))
+            A_GC[:, :N_gaitCycle-idxIC_s] = a_opt[:, idxIC_s:-1]
+            A_GC[:, N_gaitCycle-idxIC_s:] = a_opt[:,:idxIC_s]
+            
+            # Tendon forces.
+            F_GC = np.zeros((nMuscles, N_gaitCycle))
+            F_GC[:, :N_gaitCycle-idxIC_s] = normF_opt_nsc[:, idxIC_s:-1]
+            F_GC[:, N_gaitCycle-idxIC_s:] = normF_opt_nsc[:,:idxIC_s]
+            
+            # Tendon force derivatives.
+            FDt_GC = np.zeros((nMuscles, N_gaitCycle))
+            FDt_GC[:, :N_gaitCycle-idxIC_c] = normFDt_opt_nsc[:, idxIC_c:]
+            FDt_GC[:, N_gaitCycle-idxIC_c:] = normFDt_opt_nsc[:,:idxIC_c]
+            
+            # Arm actuator activations.
+            aArm_GC = np.zeros((nArmJoints, N_gaitCycle))            
+            aArm_GC[:, :N_gaitCycle-idxIC_s] = aArm_opt_nsc[:, idxIC_s:-1]
+            aArm_GC[:, N_gaitCycle-idxIC_s:] = aArm_opt_nsc[:,:idxIC_s]
+            
+            # Time grid.
+            tgrid = np.linspace(0, finalTime_opt[0], N_gaitCycle+1)
+            tgrid_GC = np.zeros((1, N_gaitCycle)) 
+            tgrid_GC[:,:N_gaitCycle] = tgrid[:N_gaitCycle].T
         
         # %% Compute metabolic cost of transport over entire gait cycle.   
         Qs_GC_rad = Qs_GC.copy()        
@@ -1472,19 +1569,19 @@ for case in cases:
         Qds_GC_rad[idxRotJoints, :] = Qds_GC_rad[idxRotJoints, :] * np.pi/180   
         basal_coef = 1.2
         basal_exp = 1    
-        metERatePerMuscle = np.zeros((nMuscles,2*N))
-        tolMetERate = np.zeros((1,2*N))
-        actHeatRate = np.zeros((1,2*N))
-        mtnHeatRate = np.zeros((1,2*N))
-        shHeatRate = np.zeros((1,2*N))
-        mechWRate = np.zeros((1,2*N))
-        normFiberLength_GC = np.zeros((nMuscles,2*N))
-        fiberVelocity_GC = np.zeros((nMuscles,2*N))
-        actHeatRate_GC = np.zeros((nMuscles,2*N))
-        mtnHeatRate_GC = np.zeros((nMuscles,2*N))
-        shHeatRate_GC = np.zeros((nMuscles,2*N))
-        mechWRate_GC = np.zeros((nMuscles,2*N))
-        for k in range(2*N):
+        metERatePerMuscle = np.zeros((nMuscles,N_gaitCycle))
+        tolMetERate = np.zeros((1,N_gaitCycle))
+        actHeatRate = np.zeros((1,N_gaitCycle))
+        mtnHeatRate = np.zeros((1,N_gaitCycle))
+        shHeatRate = np.zeros((1,N_gaitCycle))
+        mechWRate = np.zeros((1,N_gaitCycle))
+        normFiberLength_GC = np.zeros((nMuscles,N_gaitCycle))
+        fiberVelocity_GC = np.zeros((nMuscles,N_gaitCycle))
+        actHeatRate_GC = np.zeros((nMuscles,N_gaitCycle))
+        mtnHeatRate_GC = np.zeros((nMuscles,N_gaitCycle))
+        shHeatRate_GC = np.zeros((nMuscles,N_gaitCycle))
+        mechWRate_GC = np.zeros((nMuscles,N_gaitCycle))
+        for k in range(N_gaitCycle):
             ###################################################################
             # Polynomial approximations.
             # Left leg.
@@ -1520,7 +1617,7 @@ for case in cases:
                  
             if stats['success'] == True:
                 assert np.alltrue(
-                    np.abs(hillEquilibriumk_GC.full()) <= 10**(tol)), (
+                    np.abs(hillEquilibriumk_GC.full()) <= 10**(-tol)), (
                         "Error in Hill equilibrium")
                  
             normFiberLength_GC[:,k] = normFiberLengthk_GC.full().flatten()
@@ -1581,14 +1678,14 @@ for case in cases:
         
         # %% Compute stride length and extract GRFs, GRMs, and joint torques
         # over the entire gait cycle.
-        QsQds_opt_nsc_GC = np.zeros((nJoints*2, N*2))
+        QsQds_opt_nsc_GC = np.zeros((nJoints*2, N_gaitCycle))
         QsQds_opt_nsc_GC[::2, :] = Qs_GC_rad[idxJoints4F, :]
         QsQds_opt_nsc_GC[1::2, :] = Qds_GC_rad[idxJoints4F, :]     
         Qdds_GC_rad = Qdds_GC.copy()
         Qdds_GC_rad[idxRotJoints, :] = (
             Qdds_GC_rad[idxRotJoints, :] * np.pi / 180)        
-        F1_GC = np.zeros((Tj_temp.shape[0], N*2))
-        for k_GC in range(N*2):
+        F1_GC = np.zeros((Tj_temp.shape[0], N_gaitCycle))
+        for k_GC in range(N_gaitCycle):
             Tk_GC = F(ca.vertcat(QsQds_opt_nsc_GC[:,k_GC],
                                   Qdds_GC_rad[idxJoints4F, k_GC]))
             F1_GC[:, k_GC] = Tk_GC.full().T        
@@ -1828,7 +1925,7 @@ for case in cases:
                                      'optimaltrajectories.npy'),
                         allow_pickle=True)   
                 optimaltrajectories = optimaltrajectories.item()                
-            GC_percent = np.linspace(1, 100, 2*N)            
+            GC_percent = np.linspace(1, 100, N_gaitCycle)            
             optimaltrajectories[case] = {
                                 'coordinate_values': Qs_GC, 
                                 'coordinate_speeds': Qds_GC, 
