@@ -1,6 +1,8 @@
 '''
     This script plots results of the simulations. You should specify which
-    'case' you want to plot in the list 'cases' below.
+    'case' you want to plot in the list 'cases' below. You should also list
+    the joints/coordinates/muscles you would like to plot. By default, we plot
+    variables from the right leg only.
 '''
 
 # %% Import packages.
